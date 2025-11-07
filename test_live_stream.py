@@ -1,17 +1,82 @@
+#!/usr/bin/env python3
+"""
+cTrader Live Price Stream Client
+---------------------------------
+This script demonstrates real-time price streaming from cTrader API using Twisted framework.
+
+Features:
+- Application and account authentication
+- Symbol list retrieval
+- Real-time price updates for multiple symbols (EURUSD, XAUUSD, USDCNH, XAGUSD)
+- Automatic credential loading from credentials.json or .env
+
+Usage:
+1. Setup credentials:
+   python ctrader_oauth_setup.py  (RECOMMENDED)
+   OR
+   Create .env file with your credentials
+
+2. Run the script:
+   python test_live_stream.py
+
+The script will:
+- Connect to cTrader API
+- Authenticate your app and account
+- Subscribe to price streams
+- Print real-time bid/ask prices
+"""
+
 from ctrader_open_api import Client, Protobuf, TcpProtocol, EndPoints
 import ctrader_open_api.messages.OpenApiMessages_pb2 as OA
 import os
+import json
 from twisted.internet import reactor
 from dotenv import load_dotenv
 
 load_dotenv()
 
-credentials = {
-    "clientId": os.getenv("CLIENT_ID"),
-    "clientSecret": os.getenv("CLIENT_SECRET"),
-    "accessToken": os.getenv("ACCESS_TOKEN"),
-    "accountId": int(os.getenv("ACCOUNT_ID"))
-}
+# Try to load credentials from credentials.json first, fallback to .env
+def load_credentials():
+    """Load credentials from credentials.json or .env file"""
+    try:
+        # Try credentials.json first (created by ctrader_oauth_setup.py)
+        with open('credentials.json', 'r') as f:
+            creds = json.load(f)
+            print("📄 Using credentials from credentials.json")
+            return {
+                "clientId": creds.get('client_id') or creds.get('clientId'),
+                "clientSecret": creds.get('client_secret') or creds.get('clientSecret'),
+                "accessToken": creds.get('access_token') or creds.get('accessToken'),
+                "accountId": int(creds.get('account_id') or creds.get('accountId'))
+            }
+    except FileNotFoundError:
+        # Fallback to .env
+        print("📄 Using credentials from .env file")
+        client_id = os.getenv("CLIENT_ID")
+        client_secret = os.getenv("CLIENT_SECRET")
+        access_token = os.getenv("ACCESS_TOKEN")
+        account_id = os.getenv("ACCOUNT_ID")
+        
+        if not all([client_id, client_secret, access_token, account_id]):
+            print("\n❌ ERROR: Missing credentials!")
+            print("\nPlease either:")
+            print("1. Run: python ctrader_oauth_setup.py (RECOMMENDED)")
+            print("2. Create a .env file with CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN, ACCOUNT_ID")
+            print("\nSee .env.example for the template.")
+            reactor.stop()
+            return None
+            
+        return {
+            "clientId": client_id,
+            "clientSecret": client_secret,
+            "accessToken": access_token,
+            "accountId": int(account_id)
+        }
+
+credentials = load_credentials()
+if not credentials:
+    import sys
+    sys.exit(1)
 
 client = Client(EndPoints.PROTOBUF_LIVE_HOST, EndPoints.PROTOBUF_PORT, TcpProtocol)
 PROTO_OA_ERROR_RES_PAYLOAD_TYPE = OA.ProtoOAErrorRes().payloadType
@@ -85,5 +150,27 @@ def disconnected(client, reason):
 client.setConnectedCallback(connected)
 client.setDisconnectedCallback(disconnected)
 client.setMessageReceivedCallback(onMsg)
-client.startService()
-reactor.run()
+
+if __name__ == "__main__":
+    print("=" * 70)
+    print("🤖 cTrader Live Price Stream Client")
+    print("=" * 70)
+    print()
+    print(f"📡 Connecting to: {EndPoints.PROTOBUF_LIVE_HOST}:{EndPoints.PROTOBUF_PORT}")
+    print(f"🏦 Account ID: {credentials['accountId']}")
+    print(f"📊 Symbols: {', '.join(tickers)}")
+    print()
+    print("Press Ctrl+C to stop...")
+    print("=" * 70)
+    print()
+    
+    try:
+        client.startService()
+        reactor.run()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Stopping... (Ctrl+C pressed)")
+        print("👋 Goodbye!")
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
