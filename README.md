@@ -125,7 +125,7 @@ python ctrader_oauth_setup.py
 
 ### 2. **mcp_server.py** - MCP Server
 
-**Model Context Protocol eszközök Claude AI számára:**
+**Model Context Protocol eszközök Claude AI számára (WebSocket + JSON):**
 
 | Eszköz | Leírás | Paraméterek |
 |--------|--------|-------------|

@@ -337,14 +337,14 @@ class OAuthHandler(BaseHTTPRequestHandler):
             logger.error(f"❌ Account lekérési hiba: {e}")
 
     def save_credentials(self):
-        """Credentials mentése JSON fájlba"""
+        """Credentials mentése JSON fájlba (camelCase kulcsok a cTrader API-hoz)"""
         credentials = {
-            'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET,
-            'access_token': OAuthHandler.access_token,
-            'refresh_token': OAuthHandler.refresh_token,
-            'account_id': OAuthHandler.account_id,
-            'redirect_uri': detect_codespaces_url()
+            'clientId': CLIENT_ID,
+            'clientSecret': CLIENT_SECRET,
+            'accessToken': OAuthHandler.access_token,
+            'refreshToken': OAuthHandler.refresh_token,
+            'accountId': OAuthHandler.account_id,
+            'redirectUri': detect_codespaces_url()
         }
 
         with open('credentials.json', 'w') as f:

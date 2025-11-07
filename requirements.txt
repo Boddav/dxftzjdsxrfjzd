@@ -3,10 +3,8 @@
 # Claude AI
 anthropic>=0.34.0
 
-# cTrader API
-ctrader-open-api>=1.0.0
-twisted>=23.10.0
-protobuf>=4.24.0
+# cTrader API (WebSocket + JSON)
+websockets>=12.0
 
 # HTTP Server & OAuth
 requests>=2.31.0

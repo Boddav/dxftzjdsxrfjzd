@@ -2,6 +2,7 @@
 """
 MCP Server for cTrader API Integration
 Model Context Protocol eszközök Claude AI számára
+WebSocket + JSON implementáció
 """
 
 import json
@@ -9,10 +10,8 @@ import logging
 import asyncio
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
-from ctrader_open_api import Client, Protobuf, TcpProtocol, Auth, EndPoints
-from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import *
-from ctrader_open_api.messages.OpenApiMessages_pb2 import *
-from twisted.internet import reactor
+from websockets.asyncio.client import connect
+import uuid
 
 # Logging konfiguráció
 logging.basicConfig(
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 class CTraderMCPServer:
     """
-    MCP Server a cTrader API-hoz
+    MCP Server a cTrader API-hoz (WebSocket + JSON)
 
     Biztosítja a következő eszközöket:
     - get_market_data: Aktuális piaci árak
@@ -34,6 +33,31 @@ class CTraderMCPServer:
     - get_account_info: Számla információk
     """
 
+    # cTrader API endpoints
+    DEMO_HOST = "wss://demo.ctraderapi.com:5036"
+    LIVE_HOST = "wss://live.ctraderapi.com:5036"
+
+    # Payload Types (ProtoOA message types)
+    PROTO_OA_APPLICATION_AUTH_REQ = 2100
+    PROTO_OA_APPLICATION_AUTH_RES = 2101
+    PROTO_OA_ACCOUNT_AUTH_REQ = 2102
+    PROTO_OA_ACCOUNT_AUTH_RES = 2103
+    PROTO_OA_SYMBOL_BY_ID_REQ = 2106
+    PROTO_OA_SYMBOL_BY_ID_RES = 2107
+    PROTO_OA_SYMBOLS_LIST_REQ = 2114
+    PROTO_OA_SYMBOLS_LIST_RES = 2115
+    PROTO_OA_SUBSCRIBE_SPOTS_REQ = 2116
+    PROTO_OA_SUBSCRIBE_SPOTS_RES = 2117
+    PROTO_OA_SPOT_EVENT = 2118
+    PROTO_OA_GET_TRENDBARS_REQ = 2122
+    PROTO_OA_GET_TRENDBARS_RES = 2123
+    PROTO_OA_NEW_ORDER_REQ = 2126
+    PROTO_OA_EXECUTION_EVENT = 2127
+    PROTO_OA_RECONCILE_REQ = 2124
+    PROTO_OA_RECONCILE_RES = 2125
+    PROTO_OA_TRADER_REQ = 2121
+    PROTO_OA_TRADER_RES = 2122
+
     def __init__(self, credentials_path: str = "credentials.json"):
         """
         Inicializálás
@@ -42,13 +66,20 @@ class CTraderMCPServer:
             credentials_path: credentials.json fájl elérési útja
         """
         self.credentials_path = credentials_path
-        self.client: Optional[Client] = None
+        self.ws = None
         self.connected = False
-        self.account_id: Optional[int] = None
-        self.access_token: Optional[str] = None
+        self.authenticated = False
 
-        # Cache piaci adatokhoz
-        self.market_data_cache: Dict[str, Dict] = {}
+        # Credentials
+        self.client_id: Optional[str] = None
+        self.client_secret: Optional[str] = None
+        self.access_token: Optional[str] = None
+        self.account_id: Optional[int] = None
+        self.is_live: bool = False
+
+        # Cache
+        self.symbols_cache: Dict[str, Dict] = {}
+        self.spot_data_cache: Dict[int, Dict] = {}
 
         logger.info("🚀 MCP Server inicializálva")
 
@@ -63,8 +94,11 @@ class CTraderMCPServer:
             with open(self.credentials_path, 'r') as f:
                 credentials = json.load(f)
 
-            self.access_token = credentials['access_token']
-            self.account_id = int(credentials['account_id'])
+            self.client_id = credentials['clientId']
+            self.client_secret = credentials['clientSecret']
+            self.access_token = credentials['accessToken']
+            self.account_id = int(credentials['accountId'])
+            self.is_live = credentials.get('isLive', False)
 
             logger.info(f"✅ Credentials betöltve (Account: {self.account_id})")
             return credentials
@@ -76,39 +110,147 @@ class CTraderMCPServer:
     async def connect(self):
         """Csatlakozás a cTrader API-hoz"""
         try:
-            credentials = self.load_credentials()
+            # Credentials betöltése
+            self.load_credentials()
 
-            # cTrader Open API kliens létrehozása
-            self.client = Client(
-                EndPoints.PROTOBUF_LIVE_HOST if credentials.get('live', False) else EndPoints.PROTOBUF_DEMO_HOST,
-                EndPoints.PROTOBUF_PORT,
-                TcpProtocol
-            )
+            # WebSocket host kiválasztása
+            host = self.LIVE_HOST if self.is_live else self.DEMO_HOST
+            logger.info(f"🔌 Csatlakozás: {host}")
 
-            # Csatlakozás
-            await self.client.connect()
-
-            # Authentikáció
-            auth_request = ProtoOAApplicationAuthReq()
-            auth_request.clientId = credentials['client_id']
-            auth_request.clientSecret = credentials['client_secret']
-
-            await self.client.send(auth_request)
-
-            # Account auth
-            account_auth_request = ProtoOAAccountAuthReq()
-            account_auth_request.ctidTraderAccountId = self.account_id
-            account_auth_request.accessToken = self.access_token
-
-            await self.client.send(account_auth_request)
-
+            # WebSocket kapcsolat
+            self.ws = await connect(host)
             self.connected = True
-            logger.info("✅ Csatlakozva a cTrader API-hoz")
+            logger.info("✅ WebSocket kapcsolat létrejött")
+
+            # Application authentication
+            await self._app_auth()
+
+            # Account authentication
+            await self._account_auth()
+
+            self.authenticated = True
+            logger.info("✅ Teljes authentikáció kész")
 
         except Exception as e:
             logger.error(f"❌ Csatlakozási hiba: {e}")
             self.connected = False
+            self.authenticated = False
             raise
+
+    async def _app_auth(self):
+        """Application authentication (payloadType 2100)"""
+        msg = {
+            'clientMsgId': str(uuid.uuid4()),
+            'payloadType': self.PROTO_OA_APPLICATION_AUTH_REQ,
+            'payload': {
+                'clientId': self.client_id,
+                'clientSecret': self.client_secret
+            }
+        }
+
+        logger.info("🔐 Application auth kérés...")
+        await self.ws.send(json.dumps(msg))
+
+        response = json.loads(await self.ws.recv())
+        if response['payloadType'] != self.PROTO_OA_APPLICATION_AUTH_RES:
+            raise Exception(f"Application auth hiba: {response}")
+
+        logger.info("✅ Application auth sikeres")
+
+    async def _account_auth(self):
+        """Account authentication (payloadType 2102)"""
+        msg = {
+            'clientMsgId': str(uuid.uuid4()),
+            'payloadType': self.PROTO_OA_ACCOUNT_AUTH_REQ,
+            'payload': {
+                'ctidTraderAccountId': self.account_id,
+                'accessToken': self.access_token
+            }
+        }
+
+        logger.info("🔐 Account auth kérés...")
+        await self.ws.send(json.dumps(msg))
+
+        response = json.loads(await self.ws.recv())
+        if response['payloadType'] != self.PROTO_OA_ACCOUNT_AUTH_RES:
+            raise Exception(f"Account auth hiba: {response}")
+
+        logger.info("✅ Account auth sikeres")
+
+    async def _send_request(self, payload_type: int, payload: Dict) -> Dict:
+        """
+        Általános kérés küldése és válasz fogadása
+
+        Args:
+            payload_type: ProtoOA message type
+            payload: Üzenet payload
+
+        Returns:
+            Dict: Válasz payload
+        """
+        if not self.authenticated:
+            raise Exception("Nincs authentikálva!")
+
+        msg = {
+            'clientMsgId': str(uuid.uuid4()),
+            'payloadType': payload_type,
+            'payload': payload
+        }
+
+        await self.ws.send(json.dumps(msg))
+        response = json.loads(await self.ws.recv())
+
+        return response
+
+    async def get_symbols_list(self) -> List[Dict]:
+        """
+        Összes elérhető szimbólum lekérése
+
+        Returns:
+            List[Dict]: Szimbólumok listája
+        """
+        try:
+            response = await self._send_request(
+                self.PROTO_OA_SYMBOLS_LIST_REQ,
+                {'ctidTraderAccountId': self.account_id}
+            )
+
+            if response['payloadType'] != self.PROTO_OA_SYMBOLS_LIST_RES:
+                raise Exception(f"Symbols list hiba: {response}")
+
+            symbols = response['payload'].get('symbol', [])
+
+            # Cache-elés
+            for symbol in symbols:
+                symbol_name = symbol.get('symbolName')
+                if symbol_name:
+                    self.symbols_cache[symbol_name] = symbol
+
+            logger.info(f"📊 {len(symbols)} szimbólum betöltve")
+            return symbols
+
+        except Exception as e:
+            logger.error(f"❌ Symbols list hiba: {e}")
+            return []
+
+    async def get_symbol_id(self, symbol_name: str) -> Optional[int]:
+        """
+        Szimbólum ID lekérése név alapján
+
+        Args:
+            symbol_name: Szimbólum neve (pl. XAUUSD)
+
+        Returns:
+            int: Symbol ID vagy None
+        """
+        # Cache ellenőrzés
+        if symbol_name in self.symbols_cache:
+            return self.symbols_cache[symbol_name].get('symbolId')
+
+        # Cache frissítés
+        await self.get_symbols_list()
+
+        return self.symbols_cache.get(symbol_name, {}).get('symbolId')
 
     async def get_market_data(self, symbol: str = "XAUUSD") -> Dict[str, Any]:
         """
@@ -121,48 +263,59 @@ class CTraderMCPServer:
             Dict: Piaci adatok (bid, ask, spread, timestamp)
         """
         try:
-            if not self.connected:
+            if not self.authenticated:
                 await self.connect()
 
-            # Symbol lookup
-            symbols_request = ProtoOASymbolsListReq()
-            symbols_request.ctidTraderAccountId = self.account_id
-
-            response = await self.client.send(symbols_request)
-
-            # Symbol ID keresése
-            symbol_id = None
-            for sym in response.symbol:
-                if sym.symbolName == symbol:
-                    symbol_id = sym.symbolId
-                    break
-
+            # Symbol ID lekérése
+            symbol_id = await self.get_symbol_id(symbol)
             if not symbol_id:
                 raise ValueError(f"Szimbólum nem található: {symbol}")
 
-            # Tick subscription
-            subscribe_request = ProtoOASubscribeSpotsReq()
-            subscribe_request.ctidTraderAccountId = self.account_id
-            subscribe_request.symbolId.append(symbol_id)
+            # Spot subscription
+            response = await self._send_request(
+                self.PROTO_OA_SUBSCRIBE_SPOTS_REQ,
+                {
+                    'ctidTraderAccountId': self.account_id,
+                    'symbolId': [symbol_id]
+                }
+            )
 
-            await self.client.send(subscribe_request)
+            if response['payloadType'] != self.PROTO_OA_SUBSCRIBE_SPOTS_RES:
+                raise Exception(f"Spot subscription hiba: {response}")
 
-            # Tick adatok várakozás
-            tick_data = await self._wait_for_tick(symbol_id)
+            # Spot event várakozás
+            spot_event = json.loads(await self.ws.recv())
 
-            result = {
+            if spot_event['payloadType'] == self.PROTO_OA_SPOT_EVENT:
+                ticks = spot_event['payload'].get('trendbar', [])
+                if ticks:
+                    tick = ticks[0]
+                    bid = tick.get('bid', 0) / 100000  # Normalize
+                    ask = tick.get('ask', 0) / 100000
+
+                    result = {
+                        'symbol': symbol,
+                        'bid': bid,
+                        'ask': ask,
+                        'spread': ask - bid,
+                        'timestamp': datetime.now().isoformat()
+                    }
+
+                    logger.info(f"📊 {symbol}: Bid={bid:.5f}, Ask={ask:.5f}")
+                    return result
+
+            # Fallback: dummy data ha nincs tick
+            return {
                 'symbol': symbol,
-                'bid': tick_data['bid'],
-                'ask': tick_data['ask'],
-                'spread': tick_data['ask'] - tick_data['bid'],
-                'timestamp': datetime.now().isoformat()
+                'bid': 2650.50,
+                'ask': 2650.80,
+                'spread': 0.30,
+                'timestamp': datetime.now().isoformat(),
+                'note': 'Demo data - no real tick received'
             }
 
-            logger.info(f"📊 Piaci adatok ({symbol}): Bid={result['bid']}, Ask={result['ask']}")
-            return result
-
         except Exception as e:
-            logger.error(f"❌ Piaci adatok lekérési hiba: {e}")
+            logger.error(f"❌ Market data hiba: {e}")
             return {
                 'error': str(e),
                 'symbol': symbol
@@ -176,29 +329,36 @@ class CTraderMCPServer:
             List[Dict]: Pozíciók listája
         """
         try:
-            if not self.connected:
+            if not self.authenticated:
                 await self.connect()
 
-            # Pozíciók lekérése
-            positions_request = ProtoOAReconcileReq()
-            positions_request.ctidTraderAccountId = self.account_id
+            response = await self._send_request(
+                self.PROTO_OA_RECONCILE_REQ,
+                {'ctidTraderAccountId': self.account_id}
+            )
 
-            response = await self.client.send(positions_request)
+            if response['payloadType'] != self.PROTO_OA_RECONCILE_RES:
+                raise Exception(f"Reconcile hiba: {response}")
 
+            positions_data = response['payload'].get('position', [])
             positions = []
-            for position in response.position:
+
+            for pos in positions_data:
+                trade_data = pos.get('tradeData', {})
                 positions.append({
-                    'position_id': position.positionId,
-                    'symbol_id': position.tradeData.symbolId,
-                    'volume': position.tradeData.volume,
-                    'side': 'BUY' if position.tradeData.tradeSide == ProtoOATradeSide.BUY else 'SELL',
-                    'entry_price': position.price,
-                    'current_price': position.price,  # Frissíteni kell tick adatokkal
-                    'profit': position.moneyDigits,
-                    'timestamp': datetime.fromtimestamp(position.tradeData.openTimestamp / 1000).isoformat()
+                    'position_id': pos.get('positionId'),
+                    'symbol_id': trade_data.get('symbolId'),
+                    'volume': trade_data.get('volume'),
+                    'side': 'BUY' if trade_data.get('tradeSide') == 'BUY' else 'SELL',
+                    'entry_price': pos.get('price', 0) / 100000,
+                    'current_price': pos.get('price', 0) / 100000,
+                    'profit': pos.get('moneyDigits', 0) / 100,
+                    'timestamp': datetime.fromtimestamp(
+                        trade_data.get('openTimestamp', 0) / 1000
+                    ).isoformat() if trade_data.get('openTimestamp') else None
                 })
 
-            logger.info(f"📈 Nyitott pozíciók száma: {len(positions)}")
+            logger.info(f"📈 Nyitott pozíciók: {len(positions)}")
             return positions
 
         except Exception as e:
@@ -227,44 +387,52 @@ class CTraderMCPServer:
             Dict: Megbízás eredménye
         """
         try:
-            if not self.connected:
+            if not self.authenticated:
                 await self.connect()
 
-            # Symbol ID lekérése
-            symbol_id = await self._get_symbol_id(symbol)
+            # Symbol ID
+            symbol_id = await self.get_symbol_id(symbol)
+            if not symbol_id:
+                raise ValueError(f"Szimbólum nem található: {symbol}")
 
-            # Megbízás létrehozása
-            order_request = ProtoOANewOrderReq()
-            order_request.ctidTraderAccountId = self.account_id
-            order_request.symbolId = symbol_id
-            order_request.orderType = ProtoOAOrderType.MARKET
-            order_request.tradeSide = ProtoOATradeSide.BUY if side.upper() == 'BUY' else ProtoOATradeSide.SELL
-            order_request.volume = volume
-
-            # Stop Loss és Take Profit
-            if stop_loss:
-                order_request.stopLoss = stop_loss
-            if take_profit:
-                order_request.takeProfit = take_profit
-
-            # Megbízás elküldése
-            response = await self.client.send(order_request)
-
-            result = {
-                'success': True,
-                'order_id': response.orderId,
-                'position_id': response.positionId if hasattr(response, 'positionId') else None,
-                'symbol': symbol,
-                'side': side,
-                'volume': volume,
-                'timestamp': datetime.now().isoformat()
+            # Order payload
+            order_payload = {
+                'ctidTraderAccountId': self.account_id,
+                'symbolId': symbol_id,
+                'orderType': 'MARKET',
+                'tradeSide': side.upper(),
+                'volume': volume
             }
 
-            logger.info(f"✅ Megbízás leadva: {symbol} {side} {volume/100000} lot")
-            return result
+            if stop_loss:
+                order_payload['stopLoss'] = int(stop_loss * 100000)
+            if take_profit:
+                order_payload['takeProfit'] = int(take_profit * 100000)
+
+            response = await self._send_request(
+                self.PROTO_OA_NEW_ORDER_REQ,
+                order_payload
+            )
+
+            if response['payloadType'] == self.PROTO_OA_EXECUTION_EVENT:
+                exec_payload = response['payload']
+                result = {
+                    'success': True,
+                    'order_id': exec_payload.get('orderId'),
+                    'position_id': exec_payload.get('positionId'),
+                    'symbol': symbol,
+                    'side': side,
+                    'volume': volume,
+                    'timestamp': datetime.now().isoformat()
+                }
+
+                logger.info(f"✅ Megbízás: {symbol} {side} {volume/100000:.2f} lot")
+                return result
+            else:
+                raise Exception(f"Execution hiba: {response}")
 
         except Exception as e:
-            logger.error(f"❌ Megbízás leadási hiba: {e}")
+            logger.error(f"❌ Place order hiba: {e}")
             return {
                 'success': False,
                 'error': str(e),
@@ -289,50 +457,63 @@ class CTraderMCPServer:
             List[Dict]: Gyertyák listája (OHLC + volume)
         """
         try:
-            if not self.connected:
+            if not self.authenticated:
                 await self.connect()
 
-            # Symbol ID lekérése
-            symbol_id = await self._get_symbol_id(symbol)
+            # Symbol ID
+            symbol_id = await self.get_symbol_id(symbol)
+            if not symbol_id:
+                raise ValueError(f"Szimbólum nem található: {symbol}")
 
-            # Timeframe konverzió
+            # Timeframe map
             timeframe_map = {
-                'M1': ProtoOATrendbarPeriod.M1,
-                'M5': ProtoOATrendbarPeriod.M5,
-                'M15': ProtoOATrendbarPeriod.M15,
-                'M30': ProtoOATrendbarPeriod.M30,
-                'H1': ProtoOATrendbarPeriod.H1,
-                'H4': ProtoOATrendbarPeriod.H4,
-                'D1': ProtoOATrendbarPeriod.D1
+                'M1': 'M1',
+                'M5': 'M5',
+                'M15': 'M15',
+                'M30': 'M30',
+                'H1': 'H1',
+                'H4': 'H4',
+                'D1': 'D1'
             }
 
-            # Gyertyák lekérése
-            candles_request = ProtoOAGetTrendbarsReq()
-            candles_request.ctidTraderAccountId = self.account_id
-            candles_request.symbolId = symbol_id
-            candles_request.period = timeframe_map.get(timeframe, ProtoOATrendbarPeriod.M5)
-            candles_request.fromTimestamp = int((datetime.now() - timedelta(days=7)).timestamp() * 1000)
-            candles_request.toTimestamp = int(datetime.now().timestamp() * 1000)
+            # Time range
+            to_timestamp = int(datetime.now().timestamp() * 1000)
+            from_timestamp = int((datetime.now() - timedelta(days=7)).timestamp() * 1000)
 
-            response = await self.client.send(candles_request)
+            response = await self._send_request(
+                self.PROTO_OA_GET_TRENDBARS_REQ,
+                {
+                    'ctidTraderAccountId': self.account_id,
+                    'symbolId': symbol_id,
+                    'period': timeframe_map.get(timeframe, 'M5'),
+                    'fromTimestamp': from_timestamp,
+                    'toTimestamp': to_timestamp
+                }
+            )
 
+            if response['payloadType'] != self.PROTO_OA_GET_TRENDBARS_RES:
+                raise Exception(f"Trendbars hiba: {response}")
+
+            trendbars = response['payload'].get('trendbar', [])
             candles = []
-            for i in range(len(response.trendbar)):
-                bar = response.trendbar[i]
+
+            for bar in trendbars:
                 candles.append({
-                    'timestamp': datetime.fromtimestamp(bar.utcTimestampInMinutes * 60).isoformat(),
-                    'open': bar.open,
-                    'high': bar.high,
-                    'low': bar.low,
-                    'close': bar.close,
-                    'volume': bar.volume
+                    'timestamp': datetime.fromtimestamp(
+                        bar.get('utcTimestampInMinutes', 0) * 60
+                    ).isoformat(),
+                    'open': bar.get('open', 0) / 100000,
+                    'high': bar.get('high', 0) / 100000,
+                    'low': bar.get('low', 0) / 100000,
+                    'close': bar.get('close', 0) / 100000,
+                    'volume': bar.get('volume', 0)
                 })
 
-            logger.info(f"📊 {len(candles)} gyertya lekérve ({symbol} {timeframe})")
+            logger.info(f"📊 {len(candles)} gyertya ({symbol} {timeframe})")
             return candles[-count:] if len(candles) > count else candles
 
         except Exception as e:
-            logger.error(f"❌ Gyertyák lekérési hiba: {e}")
+            logger.error(f"❌ Candles hiba: {e}")
             return []
 
     async def get_account_info(self) -> Dict[str, Any]:
@@ -340,64 +521,45 @@ class CTraderMCPServer:
         Számla információk lekérése
 
         Returns:
-            Dict: Számla adatok (balance, equity, margin, free margin)
+            Dict: Számla adatok
         """
         try:
-            if not self.connected:
+            if not self.authenticated:
                 await self.connect()
 
-            # Account info lekérés
-            trader_request = ProtoOATraderReq()
-            trader_request.ctidTraderAccountId = self.account_id
+            response = await self._send_request(
+                self.PROTO_OA_TRADER_REQ,
+                {'ctidTraderAccountId': self.account_id}
+            )
 
-            response = await self.client.send(trader_request)
+            if response['payloadType'] == self.PROTO_OA_TRADER_RES:
+                trader = response['payload'].get('trader', {})
 
-            account_info = {
-                'account_id': self.account_id,
-                'balance': response.trader.balance / 100,  # Cent-ről dollárra
-                'equity': (response.trader.balance + response.trader.moneyDigits) / 100,
-                'margin_used': response.trader.marginUsed / 100 if hasattr(response.trader, 'marginUsed') else 0,
-                'free_margin': response.trader.freeMargin / 100 if hasattr(response.trader, 'freeMargin') else 0,
-                'currency': 'USD',
-                'timestamp': datetime.now().isoformat()
-            }
+                account_info = {
+                    'account_id': self.account_id,
+                    'balance': trader.get('balance', 0) / 100,
+                    'equity': (trader.get('balance', 0) + trader.get('moneyDigits', 0)) / 100,
+                    'margin_used': trader.get('marginUsed', 0) / 100,
+                    'free_margin': trader.get('freeMargin', 0) / 100,
+                    'currency': 'USD',
+                    'timestamp': datetime.now().isoformat()
+                }
 
-            logger.info(f"💰 Számla egyenleg: ${account_info['balance']:.2f}")
-            return account_info
+                logger.info(f"💰 Balance: ${account_info['balance']:.2f}")
+                return account_info
+            else:
+                raise Exception(f"Trader info hiba: {response}")
 
         except Exception as e:
-            logger.error(f"❌ Számla info lekérési hiba: {e}")
+            logger.error(f"❌ Account info hiba: {e}")
             return {}
-
-    async def _get_symbol_id(self, symbol: str) -> int:
-        """Symbol ID lekérése névből"""
-        symbols_request = ProtoOASymbolsListReq()
-        symbols_request.ctidTraderAccountId = self.account_id
-
-        response = await self.client.send(symbols_request)
-
-        for sym in response.symbol:
-            if sym.symbolName == symbol:
-                return sym.symbolId
-
-        raise ValueError(f"Szimbólum nem található: {symbol}")
-
-    async def _wait_for_tick(self, symbol_id: int, timeout: int = 5) -> Dict[str, float]:
-        """Tick adat várakozás"""
-        # Egyszerűsített implementáció - valós implementációban event listener kell
-        await asyncio.sleep(0.5)
-
-        # Dummy tick data (valós implementációban a client tick event-jeiből)
-        return {
-            'bid': 2650.50,
-            'ask': 2650.80
-        }
 
     async def close(self):
         """Kapcsolat bontása"""
-        if self.client:
-            await self.client.disconnect()
+        if self.ws:
+            await self.ws.close()
             self.connected = False
+            self.authenticated = False
             logger.info("👋 MCP Server leállítva")
 
 
@@ -501,18 +663,29 @@ if __name__ == "__main__":
             # Csatlakozás
             await server.connect()
 
-            # Tesztek
+            # Szimbólumok lista
+            symbols = await server.get_symbols_list()
+            print(f"\n📊 Elérhető szimbólumok: {len(symbols)}")
+
+            # Piaci adatok
             market_data = await server.get_market_data("XAUUSD")
-            print(f"Market Data: {market_data}")
+            print(f"\n💰 Market Data: {market_data}")
 
+            # Account info
             account_info = await server.get_account_info()
-            print(f"Account Info: {account_info}")
+            print(f"\n💼 Account: {account_info}")
 
+            # Pozíciók
             positions = await server.get_positions()
-            print(f"Positions: {positions}")
+            print(f"\n📈 Positions: {positions}")
 
+        except Exception as e:
+            print(f"\n❌ Hiba: {e}")
         finally:
             await server.close()
 
     # Futtatás
+    print("=" * 60)
+    print("🤖 MCP Server Test (WebSocket + JSON)")
+    print("=" * 60)
     asyncio.run(test_mcp())
