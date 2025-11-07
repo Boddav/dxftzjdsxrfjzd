@@ -25,9 +25,10 @@ CLIENT_SECRET = "M6qpm5h25hDHsq31SFvi4lwxWII0S829sJxeG14cz56QDFrzFC"
 PORT = 53123
 
 # API Endpoints
-AUTH_URL = "https://openapi.ctrader.com/apps/auth"
+# Az engedélyezési UI végpontja (felhasználói jóváhagyás) – PARAMÉTEREK NÉLKÜL
+AUTH_URL = "https://id.ctrader.com/my/settings/openapi/grantingaccess/"
+# Token csere végpontja változatlanul az openapi hoston:
 TOKEN_URL = "https://openapi.ctrader.com/apps/token"
-ACCOUNTS_URL = "https://openapi.ctrader.com/apps/accounts"
 
 
 def detect_codespaces_url() -> str:
@@ -73,8 +74,16 @@ class OAuthHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             redirect_uri = detect_codespaces_url()
-            # Több scope az account hozzáféréshez
-            auth_url = f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={redirect_uri}&scope=trading+accounts"
+            # Helyes paraméterezés a dokumentáció szerint: scope=trading & product=web
+            from urllib.parse import urlencode
+            params = {
+                "client_id": CLIENT_ID,
+                "redirect_uri": redirect_uri,
+                "scope": "trading",
+                "product": "web",
+                "response_type": "code",
+            }
+            auth_url = f"{AUTH_URL}?{urlencode(params)}"
 
             html = f"""
             <!DOCTYPE html>
@@ -300,8 +309,10 @@ class OAuthHandler(BaseHTTPRequestHandler):
 
             logger.info("✅ Access token kapva!")
 
-            # Account ID lekérése
-            self.get_account_id()
+            # Account ID lekérése (REST végpont nélkül)
+            # Megjegyzés: A cTrader account ID-t a Protobuf API-n keresztül vagy
+            # a felhasználó által megadott értékkel tudjuk használni.
+            # Itt nem próbáljuk REST hívással lekérni.
 
             # Credentials mentése
             self.save_credentials()
@@ -312,34 +323,9 @@ class OAuthHandler(BaseHTTPRequestHandler):
             logger.error(f"❌ Token csere hiba: {e}")
             return False
 
-    def get_account_id(self):
-        """Trading account ID lekérése"""
-        try:
-            headers = {
-                'Authorization': f'Bearer {OAuthHandler.access_token}'
-            }
-
-            response = requests.get(ACCOUNTS_URL, headers=headers)
-            response.raise_for_status()
-
-            accounts = response.json()
-            if accounts and len(accounts) > 0:
-                # Első demo account használata
-                for account in accounts:
-                    if account.get('live') == False:  # Demo account
-                        OAuthHandler.account_id = account['accountId']
-                        logger.info(
-                            f"✅ Demo Account ID: {OAuthHandler.account_id}")
-                        return
-
-                # Ha nincs demo, akkor az első live account
-                OAuthHandler.account_id = accounts[0]['accountId']
-                logger.info(f"⚠️ Live Account ID: {OAuthHandler.account_id}")
-            else:
-                logger.warning("⚠️ Nem található trading account")
-
-        except Exception as e:
-            logger.error(f"❌ Account lekérési hiba: {e}")
+    # def get_account_id(self):
+    #     """Trading account ID lekérése (nem támogatott REST végponton)"""
+    #     pass
 
     def save_credentials(self):
         """Credentials mentése JSON fájlba"""

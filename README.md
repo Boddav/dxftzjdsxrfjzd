@@ -410,6 +410,10 @@ Price update: XAUUSD Bid 2650.50 Ask 2650.80
 
 ## 🐛 Hibaelhárítás
 
+**Részletes hibaelhárítási útmutató:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+
+### Gyors megoldások:
+
 ### `credentials.json` nem található
 
 ```bash
@@ -433,6 +437,7 @@ echo "ANTHROPIC_API_KEY=your-api-key" > .env
 2. Győződj meg róla, hogy a demo account aktív
 3. Próbáld újra az OAuth flow-t
 4. Nézd meg a `credentials.json` tartalmát
+5. **Részletes segítség:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ### "Port already in use" hiba
 
