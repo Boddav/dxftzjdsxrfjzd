@@ -334,6 +334,58 @@ python ai_trading_advisor.py 2>&1 | tee trading.log
 python mcp_server.py
 ```
 
+### Valós Idejű Árfolyam Stream Teszt
+
+A `test_live_stream.py` egy Twisted-alapú szkript, amely valós időben követi a cTrader piaci árfolyamokat.
+
+**Előkészületek:**
+
+1. Először hozd létre a `.env` fájlt és állítsd be a szükséges változókat:
+
+```bash
+cp .env.example .env
+# Szerkeszd a .env fájlt és add meg:
+# - CLIENT_ID
+# - CLIENT_SECRET
+# - ACCESS_TOKEN
+# - ACCOUNT_ID
+```
+
+**VAGY** használd a `credentials.json` fájlt az OAuth setup után:
+
+```bash
+python ctrader_oauth_setup.py
+```
+
+2. Futtasd a live stream tesztet:
+
+```bash
+python test_live_stream.py
+```
+
+**Mit csinál a script?**
+- Csatlakozik a cTrader API-hoz (Protobuf/Twisted)
+- Authentikál alkalmazást és fiókot
+- Lekéri a szimbólum listát
+- Feliratkozik a következő árfolyamokra: EURUSD, XAUUSD, USDCNH, XAGUSD
+- Valós időben kiírja a bid/ask árakat
+
+**Példa kimenet:**
+
+```
+Connected
+App authenticated
+Account authenticated
+Requesting symbol list...
+Symbols received
+EURUSD -> SymbolID 1
+XAUUSD -> SymbolID 2
+Subscribing to price streams...
+Price update: EURUSD Bid 1.05123 Ask 1.05125
+Price update: XAUUSD Bid 2650.50 Ask 2650.80
+...
+```
+
 ---
 
 ## 🛡️ Biztonsági Megjegyzések

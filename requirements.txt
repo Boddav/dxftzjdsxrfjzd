@@ -3,10 +3,13 @@
 # Claude AI
 anthropic>=0.34.0
 
+# Grok AI (xAI)
+openai>=1.0.0
+
 # cTrader API
-ctrader-open-api>=1.0.0
+ctrader-open-api>=0.9.2
 twisted>=23.10.0
-protobuf>=4.24.0
+protobuf==3.20.1
 
 # HTTP Server & OAuth
 requests>=2.31.0

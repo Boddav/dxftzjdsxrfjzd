@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AI Trading Advisor
-Claude AI alapú automatizált trading bot cTrader-hez
+Grok AI (xAI) alapú automatizált trading bot cTrader-hez
 """
 
 import os
@@ -11,7 +11,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import numpy as np
-from anthropic import Anthropic
+from openai import OpenAI
 from mcp_server import CTraderMCPServer, MCP_TOOLS
 
 # Logging konfiguráció
@@ -60,7 +60,8 @@ class TechnicalIndicators:
         ema_values = [np.mean(data[:period])]  # Kezdő SMA
 
         for price in data[period:]:
-            ema_values.append((price - ema_values[-1]) * multiplier + ema_values[-1])
+            ema_values.append(
+                (price - ema_values[-1]) * multiplier + ema_values[-1])
 
         return ema_values[-1]
 
@@ -190,28 +191,39 @@ class RiskManager:
 
 class AITradingAdvisor:
     """
-    AI Trading Advisor - Claude AI alapú trading bot
+    AI Trading Advisor - Grok AI (xAI) alapú trading bot
 
     Funkciók:
     - Technikai analízis
-    - Claude AI döntéshozatal
+    - Grok AI döntéshozatal
     - Automatikus order végrehajtás
     - Kockázatkezelés
     """
 
-    def __init__(self, anthropic_api_key: str):
+    def __init__(self, openai_api_key: str, use_grok: bool = False):
         """
         Inicializálás
 
         Args:
-            anthropic_api_key: Anthropic API kulcs
+            openai_api_key: OpenAI vagy xAI API kulcs
+            use_grok: True ha Grok-ot szeretnél használni, False ha GPT-3.5-t
         """
-        self.anthropic = Anthropic(api_key=anthropic_api_key)
-        self.mcp_server = CTraderMCPServer()
-        self.risk_manager = RiskManager(max_risk_per_trade=0.02, max_open_positions=3)
-        self.running = False
+        if use_grok:
+            self.client = OpenAI(
+                api_key=openai_api_key,
+                base_url="https://api.x.ai/v1"
+            )
+            self.model = "grok-beta"
+            logger.info("🤖 AI Trading Advisor inicializálva (Grok AI)")
+        else:
+            self.client = OpenAI(api_key=openai_api_key)
+            self.model = "gpt-3.5-turbo"
+            logger.info("🤖 AI Trading Advisor inicializálva (GPT-3.5-Turbo)")
 
-        logger.info("🤖 AI Trading Advisor inicializálva")
+        self.mcp_server = CTraderMCPServer()
+        self.risk_manager = RiskManager(
+            max_risk_per_trade=0.02, max_open_positions=3)
+        self.running = False
 
     async def start(self):
         """Trading bot indítása"""
@@ -284,7 +296,8 @@ class AITradingAdvisor:
             if decision['action'] != 'HOLD':
                 await self.execute_trade(decision, market_data, account_info)
 
-            logger.info(f"✅ Trading loop befejezve - Döntés: {decision['action']}")
+            logger.info(
+                f"✅ Trading loop befejezve - Döntés: {decision['action']}")
 
         except Exception as e:
             logger.error(f"❌ Trading loop hiba: {e}")
@@ -328,7 +341,8 @@ class AITradingAdvisor:
             'trend': trend
         }
 
-        logger.info(f"📊 Analízis: Trend={trend}, RSI={rsi:.2f}, Price={current_price:.2f}")
+        logger.info(
+            f"📊 Analízis: Trend={trend}, RSI={rsi:.2f}, Price={current_price:.2f}")
         return analysis
 
     async def get_ai_decision(
@@ -340,7 +354,7 @@ class AITradingAdvisor:
         account_info: Dict
     ) -> Dict[str, Any]:
         """
-        Claude AI döntéskérés
+        Grok AI döntéskérés
 
         Args:
             symbol: Trading szimbólum
@@ -399,28 +413,32 @@ Based on this analysis, provide your trading decision in this EXACT JSON format:
 Provide ONLY the JSON, no other text.
 """
 
-            # Claude API hívás
-            response = self.anthropic.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=1024,
+            # OpenAI/Grok API hívás
+            response = self.client.chat.completions.create(
+                model=self.model,
                 messages=[{
                     "role": "user",
                     "content": prompt
-                }]
+                }],
+                max_tokens=1024,
+                temperature=0.7
             )
 
             # Válasz feldolgozása
-            decision_text = response.content[0].text.strip()
+            decision_text = response.choices[0].message.content.strip()
 
             # JSON kinyerése (ha van egyéb szöveg is)
             if '```json' in decision_text:
-                decision_text = decision_text.split('```json')[1].split('```')[0].strip()
+                decision_text = decision_text.split(
+                    '```json')[1].split('```')[0].strip()
             elif '```' in decision_text:
-                decision_text = decision_text.split('```')[1].split('```')[0].strip()
+                decision_text = decision_text.split(
+                    '```')[1].split('```')[0].strip()
 
             decision = json.loads(decision_text)
 
-            logger.info(f"🤖 AI Döntés: {decision['action']} (confidence: {decision['confidence']:.2f})")
+            logger.info(
+                f"🤖 AI Döntés: {decision['action']} (confidence: {decision['confidence']:.2f})")
             logger.info(f"💭 Indoklás: {decision['reasoning']}")
 
             return decision
@@ -458,7 +476,8 @@ Provide ONLY the JSON, no other text.
 
             # Confidence threshold
             if decision['confidence'] < 0.6:
-                logger.info(f"⚠️ Alacsony confidence ({decision['confidence']:.2f}), skip trade")
+                logger.info(
+                    f"⚠️ Alacsony confidence ({decision['confidence']:.2f}), skip trade")
                 return
 
             action = decision['action']
@@ -471,7 +490,8 @@ Provide ONLY the JSON, no other text.
             # XAUUSD esetén 1 pip = 0.1
             pip_value = 0.1
             stop_loss_distance = decision.get('stop_loss_pips', 20) * pip_value
-            take_profit_distance = decision.get('take_profit_pips', 40) * pip_value
+            take_profit_distance = decision.get(
+                'take_profit_pips', 40) * pip_value
 
             if action == 'BUY':
                 stop_loss = entry_price - stop_loss_distance
@@ -497,7 +517,8 @@ Provide ONLY the JSON, no other text.
             )
 
             if order_result.get('success'):
-                logger.info(f"✅ Trade végrehajtva: {action} {volume/100000:.2f} lot @ {entry_price:.2f}")
+                logger.info(
+                    f"✅ Trade végrehajtva: {action} {volume/100000:.2f} lot @ {entry_price:.2f}")
                 logger.info(f"   SL: {stop_loss:.2f}, TP: {take_profit:.2f}")
             else:
                 logger.error(f"❌ Trade hiba: {order_result.get('error')}")
@@ -509,14 +530,30 @@ Provide ONLY the JSON, no other text.
 async def main():
     """Főprogram"""
     print("=" * 60)
-    print("🤖 AI Trading Advisor - Claude AI + cTrader")
+    print("🤖 AI Trading Advisor - GPT-3.5/Grok + cTrader")
     print("=" * 60)
 
-    # API kulcs ellenőrzés
-    anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not anthropic_api_key:
-        print("\n❌ HIBA: ANTHROPIC_API_KEY környezeti változó nincs beállítva!")
-        print("   Használat: export ANTHROPIC_API_KEY='your-api-key'")
+    # API kulcs ellenőrzés (OpenAI vagy Grok)
+    openai_api_key = os.getenv('OPENAI_API_KEY')
+    grok_api_key = os.getenv('XAI_API_KEY')
+
+    use_grok = False
+    api_key = None
+
+    if openai_api_key:
+        api_key = openai_api_key
+        use_grok = False
+        print("\n✅ OpenAI API kulcs észlelve (GPT-3.5-turbo)")
+    elif grok_api_key:
+        api_key = grok_api_key
+        use_grok = True
+        print("\n✅ Grok API kulcs észlelve (Grok-beta)")
+    else:
+        print("\n❌ HIBA: Sem OPENAI_API_KEY, sem XAI_API_KEY nincs beállítva!")
+        print("   Használat:")
+        print("   export OPENAI_API_KEY='sk-...'  (GPT-3.5)")
+        print("   VAGY")
+        print("   export XAI_API_KEY='xai-...'  (Grok)")
         return
 
     # Credentials ellenőrzés
@@ -529,7 +566,7 @@ async def main():
     print("=" * 60)
 
     # Bot indítása
-    advisor = AITradingAdvisor(anthropic_api_key)
+    advisor = AITradingAdvisor(api_key, use_grok=use_grok)
 
     try:
         await advisor.start()
