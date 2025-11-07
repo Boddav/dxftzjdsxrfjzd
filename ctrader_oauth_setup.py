@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # cTrader API konfiguráció
 CLIENT_ID = "13617_NoiIy9DOCJXwKnJEE0mWHGPQZFvkSZfIKDrJ6paJv6cL05JAR5"
 CLIENT_SECRET = "M6qpm5h25hDHsq31SFvi4lwxWII0S829sJxeG14cz56QDFrzFC"
-PORT = 8080
+PORT = 53123
 
 # API Endpoints
 AUTH_URL = "https://openapi.ctrader.com/apps/auth"
@@ -39,7 +39,8 @@ def detect_codespaces_url() -> str:
     """
     # GitHub Codespaces környezeti változók
     codespace_name = os.getenv('CODESPACE_NAME')
-    github_codespaces_port_forwarding_domain = os.getenv('GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN')
+    github_codespaces_port_forwarding_domain = os.getenv(
+        'GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN')
 
     if codespace_name and github_codespaces_port_forwarding_domain:
         # Codespaces URL formátum: https://{codespace_name}-{port}.{domain}
@@ -47,8 +48,8 @@ def detect_codespaces_url() -> str:
         logger.info(f"🚀 GitHub Codespaces észlelve: {redirect_uri}")
         return redirect_uri
     else:
-        # Helyi fejlesztés
-        redirect_uri = f"http://localhost:{PORT}/callback"
+        # Helyi fejlesztés - mindig 127.0.0.1 használata
+        redirect_uri = f"http://127.0.0.1:{PORT}/callback"
         logger.info(f"💻 Helyi környezet: {redirect_uri}")
         return redirect_uri
 
@@ -72,7 +73,8 @@ class OAuthHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             redirect_uri = detect_codespaces_url()
-            auth_url = f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={redirect_uri}&scope=trading"
+            # Több scope az account hozzáféréshez
+            auth_url = f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={redirect_uri}&scope=trading+accounts"
 
             html = f"""
             <!DOCTYPE html>
@@ -182,7 +184,8 @@ class OAuthHandler(BaseHTTPRequestHandler):
 
             if 'code' in query_params:
                 OAuthHandler.authorization_code = query_params['code'][0]
-                logger.info(f"✅ Authorization code kapva: {OAuthHandler.authorization_code[:20]}...")
+                logger.info(
+                    f"✅ Authorization code kapva: {OAuthHandler.authorization_code[:20]}...")
 
                 # Token csere
                 success = self.exchange_token()
@@ -190,7 +193,8 @@ class OAuthHandler(BaseHTTPRequestHandler):
                 if success:
                     # Sikeres authentikáció
                     self.send_response(200)
-                    self.send_header('Content-type', 'text/html; charset=utf-8')
+                    self.send_header(
+                        'Content-type', 'text/html; charset=utf-8')
                     self.end_headers()
 
                     html = """
@@ -324,7 +328,8 @@ class OAuthHandler(BaseHTTPRequestHandler):
                 for account in accounts:
                     if account.get('live') == False:  # Demo account
                         OAuthHandler.account_id = account['accountId']
-                        logger.info(f"✅ Demo Account ID: {OAuthHandler.account_id}")
+                        logger.info(
+                            f"✅ Demo Account ID: {OAuthHandler.account_id}")
                         return
 
                 # Ha nincs demo, akkor az első live account
