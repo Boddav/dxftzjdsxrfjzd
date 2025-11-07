@@ -29,6 +29,7 @@ The script will:
 from ctrader_open_api import Client, Protobuf, TcpProtocol, EndPoints
 import ctrader_open_api.messages.OpenApiMessages_pb2 as OA
 import os
+import sys
 import json
 from twisted.internet import reactor
 from dotenv import load_dotenv
@@ -43,11 +44,19 @@ def load_credentials():
         with open('credentials.json', 'r') as f:
             creds = json.load(f)
             print("📄 Using credentials from credentials.json")
+            
+            # Safe account_id extraction with proper None handling
+            account_id_value = creds.get('account_id') or creds.get('accountId')
+            if account_id_value is None:
+                print("\n❌ ERROR: account_id is missing from credentials.json")
+                print("Please run: python ctrader_oauth_setup.py")
+                return None
+            
             return {
                 "clientId": creds.get('client_id') or creds.get('clientId'),
                 "clientSecret": creds.get('client_secret') or creds.get('clientSecret'),
                 "accessToken": creds.get('access_token') or creds.get('accessToken'),
-                "accountId": int(creds.get('account_id') or creds.get('accountId'))
+                "accountId": int(account_id_value)
             }
     except FileNotFoundError:
         # Fallback to .env
@@ -63,7 +72,6 @@ def load_credentials():
             print("1. Run: python ctrader_oauth_setup.py (RECOMMENDED)")
             print("2. Create a .env file with CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN, ACCOUNT_ID")
             print("\nSee .env.example for the template.")
-            reactor.stop()
             return None
             
         return {
@@ -75,7 +83,6 @@ def load_credentials():
 
 credentials = load_credentials()
 if not credentials:
-    import sys
     sys.exit(1)
 
 client = Client(EndPoints.PROTOBUF_LIVE_HOST, EndPoints.PROTOBUF_PORT, TcpProtocol)

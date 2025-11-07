@@ -102,19 +102,17 @@ def test_payload_types():
         import ctrader_open_api.messages.OpenApiMessages_pb2 as OA
         
         # Test that key message types exist
-        auth_req = OA.ProtoOAApplicationAuthReq()
-        auth_res = OA.ProtoOAApplicationAuthRes()
-        acc_auth_req = OA.ProtoOAAccountAuthReq()
-        acc_auth_res = OA.ProtoOAAccountAuthRes()
-        error_res = OA.ProtoOAErrorRes()
-        spot_event = OA.ProtoOASpotEvent()
+        message_types = [
+            ('ProtoOAApplicationAuthReq', OA.ProtoOAApplicationAuthReq()),
+            ('ProtoOAApplicationAuthRes', OA.ProtoOAApplicationAuthRes()),
+            ('ProtoOAAccountAuthReq', OA.ProtoOAAccountAuthReq()),
+            ('ProtoOAAccountAuthRes', OA.ProtoOAAccountAuthRes()),
+            ('ProtoOAErrorRes', OA.ProtoOAErrorRes()),
+            ('ProtoOASpotEvent', OA.ProtoOASpotEvent()),
+        ]
         
-        print(f"✅ ProtoOAApplicationAuthReq: {auth_req.payloadType}")
-        print(f"✅ ProtoOAApplicationAuthRes: {auth_res.payloadType}")
-        print(f"✅ ProtoOAAccountAuthReq: {acc_auth_req.payloadType}")
-        print(f"✅ ProtoOAAccountAuthRes: {acc_auth_res.payloadType}")
-        print(f"✅ ProtoOAErrorRes: {error_res.payloadType}")
-        print(f"✅ ProtoOASpotEvent: {spot_event.payloadType}")
+        for name, msg in message_types:
+            print(f"✅ {name}: {msg.payloadType}")
         
         return True
     except Exception as e:
