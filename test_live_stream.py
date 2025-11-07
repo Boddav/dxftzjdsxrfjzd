@@ -164,7 +164,10 @@ if __name__ == "__main__":
     print("=" * 70)
     print()
     print(f"📡 Connecting to: {EndPoints.PROTOBUF_LIVE_HOST}:{EndPoints.PROTOBUF_PORT}")
-    print(f"🏦 Account ID: {credentials['accountId']}")
+    # Mask account ID for security - only show last 4 digits
+    account_str = str(credentials['accountId'])
+    masked_account = '*' * (len(account_str) - 4) + account_str[-4:] if len(account_str) > 4 else '****'
+    print(f"🏦 Account ID: {masked_account}")
     print(f"📊 Symbols: {', '.join(tickers)}")
     print()
     print("Press Ctrl+C to stop...")
