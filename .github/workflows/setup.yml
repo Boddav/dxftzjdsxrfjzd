@@ -1,0 +1,63 @@
+name: AI Trading Advisor Setup
+
+on:
+  push:
+    branches: [ main, claude/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  setup-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Lint with flake8 (optional)
+      run: |
+        pip install flake8
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      continue-on-error: true
+
+    - name: Check file structure
+      run: |
+        echo "Checking project structure..."
+        ls -la
+        echo ""
+        echo "Main Python files:"
+        ls -lh *.py
+
+    - name: Validate Python syntax
+      run: |
+        python -m py_compile ctrader_oauth_setup.py
+        python -m py_compile mcp_server.py
+        python -m py_compile ai_trading_advisor.py
+        echo "✅ All Python files are syntactically correct!"
+
+    - name: Check dependencies
+      run: |
+        pip list
+        echo ""
+        echo "✅ Dependencies installed successfully!"

@@ -1,0 +1,29 @@
+# AI Trading Advisor Dependencies
+
+# Claude AI
+anthropic>=0.34.0
+
+# cTrader API
+ctrader-open-api>=1.0.0
+twisted>=23.10.0
+protobuf>=4.24.0
+
+# HTTP Server & OAuth
+requests>=2.31.0
+flask>=3.0.0
+
+# Data Analysis
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Model Context Protocol
+mcp>=0.9.0
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# Async Support
+asyncio>=3.4.3
+
+# Logging & Utilities
+colorlog>=6.7.0
