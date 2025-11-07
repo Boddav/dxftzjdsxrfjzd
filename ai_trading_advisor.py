@@ -1,4 +1,4 @@
-https://m-ahmadi.github.io/ctoa/contacting-api/acquiring-credentials#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 AI Trading Advisor
 Grok AI (xAI) alapú automatizált trading bot cTrader-hez
