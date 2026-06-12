@@ -9,6 +9,7 @@ websockets>=12.0
 # HTTP Server & OAuth
 requests>=2.31.0
 flask>=3.0.0
+flask-cors>=4.0.0
 
 # Data Analysis
 numpy>=1.24.0

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beállítások - AI Trading Advisor</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 AI Trading Advisor</div>
+        <div class="nav-links">
+            <a href="index.html">Dashboard</a>
+            <a href="config.html" class="active">Beállítások</a>
+            <a href="logs.html">Naplók</a>
+            <a href="https://github.com/Boddav/dxftzjdsxrfjzd" target="_blank">GitHub</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Beállítások</h1>
+
+        <div class="connection-status" id="connectionStatus">
+            <span class="status-indicator offline"></span>
+            <span id="connectionText">Kapcsolódás az API-hoz...</span>
+        </div>
+
+        <div class="section">
+            <h2>Backend API URL</h2>
+            <div class="info-box">
+                <p>A backend API jelenlegi címe: <strong id="currentApiUrl"></strong></p>
+                <p>Az URL megváltoztatásához szerkeszd a <code>js/config.js</code> fájlt.</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>cTrader API</h2>
+            <form id="configForm">
+                <div class="form-group">
+                    <label for="clientId">Client ID</label>
+                    <input type="text" id="clientId" name="clientId" class="form-control" placeholder="cTrader Client ID">
+                    <small>A backend szerveren állítsd be a credentials.json fájlban</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="accountId">Account ID</label>
+                    <input type="text" id="accountId" name="accountId" class="form-control" placeholder="cTrader Account ID" readonly>
+                    <small>Automatikusan betöltődik a backend-ről</small>
+                </div>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Claude AI</h2>
+            <div class="info-box">
+                <p>Az Anthropic API kulcs a backend szerveren van beállítva (.env fájl).</p>
+                <p>Státusz: <span id="anthropicStatus" class="badge">Ellenőrzés...</span></p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Kereskedési Paraméterek</h2>
+            <div class="form-group">
+                <label for="maxPositions">Max. Egyidejű Pozíciók</label>
+                <input type="number" id="maxPositions" name="maxPositions" class="form-control" min="1" max="10" value="3" readonly>
+                <small>Backend konfigurációban állítható</small>
+            </div>
+
+            <div class="form-group">
+                <label for="riskPerTrade">Kockázat per Kereskedés (%)</label>
+                <input type="number" id="riskPerTrade" name="riskPerTrade" class="form-control" min="0.1" max="5" step="0.1" value="1.0" readonly>
+                <small>Backend konfigurációban állítható</small>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Backend Deployment</h2>
+            <div class="info-box">
+                <h3>Ajánlott hosting szolgáltatások:</h3>
+                <ul>
+                    <li><a href="https://render.com/" target="_blank">Render.com</a> - Ingyenes tier elérhető</li>
+                    <li><a href="https://railway.app/" target="_blank">Railway.app</a> - $5 ingyen kredit havonta</li>
+                    <li><a href="https://www.heroku.com/" target="_blank">Heroku</a> - Eco dyno $5/hó</li>
+                </ul>
+                <p>Részletes útmutató a <code>DEPLOYMENT.md</code> fájlban.</p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>AI Trading Advisor © 2026 | Powered by Claude AI & cTrader</p>
+    </footer>
+
+    <script src="js/config.js"></script>
+    <script src="js/config-page.js"></script>
+</body>
+</html>

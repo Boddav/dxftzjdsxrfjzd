@@ -9,6 +9,7 @@ import json
 import asyncio
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask_cors import CORS
 from dotenv import load_dotenv
 import logging
 
@@ -20,6 +21,17 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# CORS engedélyezése GitHub Pages számára
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "https://boddav.github.io",
+            "http://localhost:*",
+            "http://127.0.0.1:*"
+        ]
+    }
+})
 
 # Globális bot instance
 bot_instance = None
