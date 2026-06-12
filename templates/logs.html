@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naplók - AI Trading Advisor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 AI Trading Advisor</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/config">Beállítások</a>
+            <a href="/logs" class="active">Naplók</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>Rendszer Naplók</h1>
+            <button class="btn btn-secondary" onclick="refreshLogs()">🔄 Frissítés</button>
+        </div>
+
+        <div class="section">
+            <div class="log-filters">
+                <label>
+                    <input type="checkbox" id="filterInfo" checked> INFO
+                </label>
+                <label>
+                    <input type="checkbox" id="filterWarning" checked> WARNING
+                </label>
+                <label>
+                    <input type="checkbox" id="filterError" checked> ERROR
+                </label>
+            </div>
+
+            <div id="logsContainer" class="logs-container">
+                <div class="no-data">Naplók betöltése...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/logs.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Trading Advisor - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 AI Trading Advisor</div>
+        <div class="nav-links">
+            <a href="/" class="active">Dashboard</a>
+            <a href="/config">Beállítások</a>
+            <a href="/logs">Naplók</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>Trading Bot Dashboard</h1>
+            <div class="bot-controls">
+                <button id="startBtn" class="btn btn-success" onclick="startBot()">▶ Indítás</button>
+                <button id="stopBtn" class="btn btn-danger" onclick="stopBot()">⏹ Leállítás</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Bot Státusz</div>
+                <div class="stat-value" id="botStatus">
+                    <span class="status-indicator offline"></span>
+                    Leállítva
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Mai Kereskedések</div>
+                <div class="stat-value" id="tradesToday">0</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Mai P&L</div>
+                <div class="stat-value" id="pnlToday">$0.00</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Aktív Pozíciók</div>
+                <div class="stat-value" id="activePositions">0</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Aktív Pozíciók</h2>
+            <div id="positionsTable" class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Szimbólum</th>
+                            <th>Típus</th>
+                            <th>Méret</th>
+                            <th>Nyitó Ár</th>
+                            <th>Jelenlegi Ár</th>
+                            <th>P&L</th>
+                            <th>Idő</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positionsBody">
+                        <tr>
+                            <td colspan="7" class="no-data">Nincs aktív pozíció</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Kereskedési Előzmények (Utolsó 10)</h2>
+            <div id="historyTable" class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Idő</th>
+                            <th>Szimbólum</th>
+                            <th>Típus</th>
+                            <th>Döntés</th>
+                            <th>P&L</th>
+                            <th>Indoklás</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody">
+                        <tr>
+                            <td colspan="6" class="no-data">Nincs előzmény</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
