@@ -14,6 +14,7 @@ GitHub Codespaces kompatibilis, teljes körű AI trading megoldás arany (XAUUSD
 - ✅ **Technikai indikátorok** - SMA, EMA, RSI, Bollinger Bands
 - ✅ **Kockázatkezelés** - Maximum 2% kockázat per trade
 - ✅ **Automatikus OAuth** - Egyszerű cTrader fiók csatlakoztatás
+- ✅ **Web Admin Felület** - Modern dashboard bot kezeléshez és monitoringhoz
 - ✅ **GitHub Codespaces ready** - DevContainer előkonfigurálva
 - ✅ **Magyar dokumentáció** - Teljes magyar nyelvű útmutató
 
@@ -69,7 +70,21 @@ cp .env.example .env
 # Szerkeszd a .env fájlt és add meg az API kulcsod
 ```
 
-### 5️⃣ Trading Bot Indítása
+### 5️⃣ Web Admin Felület Indítása (Ajánlott)
+
+```bash
+python admin_interface.py
+```
+
+Nyisd meg böngészőben: **http://localhost:5000**
+
+**Funkciók:**
+- 📊 Dashboard - Bot státusz, pozíciók, teljesítmény
+- ⚙️ Beállítások - API kulcsok, paraméterek
+- 📝 Naplók - Valós idejű rendszer naplók
+- ▶️ Bot vezérlés - Indítás/leállítás egy kattintással
+
+### 5️⃣ (Alternatíva) Trading Bot Közvetlen Indítása
 
 ```bash
 python ai_trading_advisor.py
@@ -83,9 +98,17 @@ python ai_trading_advisor.py
 ai-trading-advisor/
 ├── .devcontainer/
 │   └── devcontainer.json          # GitHub Codespaces konfig
+├── templates/                     # HTML template-ek (admin felület)
+│   ├── dashboard.html
+│   ├── config.html
+│   └── logs.html
+├── static/                        # Statikus fájlok (CSS, JS)
+│   ├── css/style.css
+│   └── js/
 ├── ctrader_oauth_setup.py         # OAuth szerver (cTrader auth)
 ├── mcp_server.py                  # Model Context Protocol server
 ├── ai_trading_advisor.py          # Fő trading bot
+├── admin_interface.py             # Web admin felület (Flask)
 ├── requirements.txt               # Python függőségek
 ├── .env.example                   # Példa environment változók
 ├── .gitignore                     # Git ignore fájlok
@@ -123,7 +146,47 @@ python ctrader_oauth_setup.py
 
 ---
 
-### 2. **mcp_server.py** - MCP Server
+### 2. **admin_interface.py** - Web Admin Felület
+
+**Flask-alapú adminisztrációs felület:**
+
+| Oldal | Funkciók |
+|-------|----------|
+| **Dashboard** | Bot státusz, aktív pozíciók, napi P&L, kereskedési előzmények |
+| **Beállítások** | API kulcsok kezelése, kereskedési paraméterek, kockázatkezelés |
+| **Naplók** | Valós idejű rendszer naplók szűréssel (INFO/WARNING/ERROR) |
+
+**API Endpointok:**
+
+```python
+GET  /api/status        # Bot státusz lekérése
+POST /api/start         # Bot indítása
+POST /api/stop          # Bot leállítása
+GET  /api/positions     # Aktív pozíciók
+GET  /api/history       # Kereskedési előzmények
+GET  /api/logs          # Rendszer naplók
+```
+
+**Használat:**
+
+```bash
+# Admin felület indítása
+python admin_interface.py
+
+# Böngészőben megnyitás
+http://localhost:5000
+```
+
+**Környezeti változók (.env):**
+```bash
+ADMIN_PORT=5000                     # Admin port
+SECRET_KEY=your-random-secret-key   # Flask secret key
+FLASK_DEBUG=False                   # Debug mód (csak fejlesztéshez)
+```
+
+---
+
+### 3. **mcp_server.py** - MCP Server
 
 **Model Context Protocol eszközök Claude AI számára (WebSocket + JSON):**
 
@@ -159,7 +222,7 @@ order = await server.place_order(
 
 ---
 
-### 3. **ai_trading_advisor.py** - AI Trading Bot
+### 4. **ai_trading_advisor.py** - AI Trading Bot
 
 **Architektúra:**
 
