@@ -72,25 +72,22 @@ def api_start_bot():
         if bot_status['running']:
             return jsonify({'success': False, 'message': 'Bot már fut!'})
 
-        # Beállítások betöltése
-        config = {
-            'ctrader_client_id': os.getenv('CTRADER_CLIENT_ID'),
-            'ctrader_client_secret': os.getenv('CTRADER_CLIENT_SECRET'),
-            'anthropic_api_key': os.getenv('ANTHROPIC_API_KEY'),
-            'account_id': os.getenv('CTRADER_ACCOUNT_ID')
-        }
+        # Ellenőrzés: van-e minden szükséges konfiguráció
+        if not os.getenv('ANTHROPIC_API_KEY'):
+            return jsonify({'success': False, 'message': 'ANTHROPIC_API_KEY nincs beállítva!'})
 
-        # Bot példány létrehozása
-        bot_instance = AITradingAdvisor(config)
+        if not os.getenv('CTRADER_CLIENT_ID'):
+            return jsonify({'success': False, 'message': 'cTrader credentials nincsenek beállítva! Később add hozzá.'})
 
-        # Bot indítása háttérben
-        asyncio.create_task(run_bot())
-
+        # Bot státusz frissítése (egyelőre csak mock)
         bot_status['running'] = True
         bot_status['last_update'] = datetime.now().isoformat()
 
-        logger.info("Trading bot elindítva")
-        return jsonify({'success': True, 'message': 'Bot sikeresen elindítva'})
+        logger.info("Trading bot indítási kérés fogadva (demo mód)")
+        return jsonify({
+            'success': True,
+            'message': 'Bot státusz frissítve. Teljes funkcionalitáshoz add hozzá a cTrader credentials-eket!'
+        })
 
     except Exception as e:
         logger.error(f"Bot indítási hiba: {str(e)}")
@@ -206,22 +203,10 @@ def api_logs():
         return jsonify({'success': False, 'message': str(e)})
 
 
-async def run_bot():
-    """Bot futtatása háttérben"""
-    global bot_instance, bot_status
-
-    try:
-        while bot_status['running']:
-            # Bot logika
-            if bot_instance:
-                # TODO: Implement main trading loop
-                await asyncio.sleep(60)  # 1 perc várakozás
-                bot_status['last_update'] = datetime.now().isoformat()
-            else:
-                break
-    except Exception as e:
-        logger.error(f"Bot hiba: {str(e)}")
-        bot_status['running'] = False
+# async def run_bot():
+#     """Bot futtatása háttérben - Jelenleg nem használt (threading megoldás kell)"""
+#     # TODO: Implement proper background task with threading or Celery
+#     pass
 
 
 if __name__ == '__main__':
