@@ -1,16 +1,11 @@
 // API Configuration
-// Change this URL to your deployed backend API
+// Render.com backend URL
 const API_CONFIG = {
-    // For local development
-    // baseURL: 'http://localhost:5000',
+    // Production backend (Render.com)
+    baseURL: 'https://ai-trading-advisor-c4za.onrender.com',
 
-    // For production (change to your deployed backend URL)
-    baseURL: 'https://your-backend-api.herokuapp.com',
-
-    // Or use environment detection
-    // baseURL: window.location.hostname === 'localhost'
-    //     ? 'http://localhost:5000'
-    //     : 'https://your-backend-api.herokuapp.com'
+    // For local development, uncomment below:
+    // baseURL: 'http://localhost:5000'
 };
 
 // Helper function to make API calls
