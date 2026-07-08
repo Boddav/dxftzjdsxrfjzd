@@ -161,8 +161,8 @@ def api_config():
             'has_client_secret': bool(os.getenv('CTRADER_CLIENT_SECRET')),
             'has_anthropic_key': bool(os.getenv('ANTHROPIC_API_KEY')),
             'account_id': os.getenv('CTRADER_ACCOUNT_ID', ''),
-            'max_positions': os.getenv('MAX_POSITIONS', '3'),
-            'risk_per_trade': os.getenv('RISK_PER_TRADE', '1.0')
+            'max_positions': os.getenv('MAX_OPEN_POSITIONS', '3'),
+            'risk_per_trade': os.getenv('MAX_RISK_PER_TRADE', '0.02')
         }
         return jsonify(config)
 
