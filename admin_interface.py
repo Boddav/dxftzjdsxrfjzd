@@ -263,7 +263,7 @@ def _exchange_code_for_tokens(code, redirect_uri=None):
         'accessToken': access_token,
         'refreshToken': refresh_token,
         'accountId': account_id,
-        'redirectUri': OAUTH_REDIRECT_URI
+        'redirectUri': redirect_uri
     }
     with open('credentials.json', 'w') as f:
         json.dump(credentials, f, indent=2)
