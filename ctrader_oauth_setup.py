@@ -24,8 +24,8 @@ CLIENT_ID = "13617_NoiIy9DOCJXwKnJEE0mWHGPQZFvkSZfIKDrJ6paJv6cL05JAR5"
 CLIENT_SECRET = "M6qpm5h25hDHsq31SFvi4lwxWII0S829sJxeG14cz56QDFrzFC"
 PORT = 8080
 
-# API Endpoints
-AUTH_URL = "https://openapi.ctrader.com/apps/auth"
+# API Endpoints (CORRECT URLs for cTrader OAuth)
+AUTH_URL = "https://id.ctrader.com/my/settings/openapi/grantingaccess/"
 TOKEN_URL = "https://openapi.ctrader.com/apps/token"
 ACCOUNTS_URL = "https://openapi.ctrader.com/apps/accounts"
 
@@ -72,7 +72,12 @@ class OAuthHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             redirect_uri = detect_codespaces_url()
+
+            # cTrader OAuth URL with correct format
             auth_url = f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={redirect_uri}&scope=trading"
+
+            logger.info(f"🔐 Redirect URI: {redirect_uri}")
+            logger.info(f"🌐 Auth URL: {auth_url}")
 
             html = f"""
             <!DOCTYPE html>
