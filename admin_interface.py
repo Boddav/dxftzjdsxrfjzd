@@ -20,6 +20,14 @@ from mcp_server import CTraderMCPServer
 
 load_dotenv()
 
+# config.json betöltése induláskor (felülírja a .env értékeit ha újabb)
+_config_file = 'config.json'
+if os.path.exists(_config_file):
+    with open(_config_file, 'r') as _f:
+        for _k, _v in json.load(_f).items():
+            if _v:
+                os.environ[_k] = _v
+
 app = Flask(__name__)
 app.secret_key = os.getenv('SESSION_SECRET', os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production'))
 
@@ -168,11 +176,36 @@ def api_config():
         return jsonify(config)
 
     elif request.method == 'POST':
-        # Konfiguráció mentése .env fájlba
         try:
-            data = request.json
-            # TODO: Implement .env file update
-            return jsonify({'success': True, 'message': 'Konfiguráció mentve'})
+            data = request.json or {}
+            config_file = 'config.json'
+
+            # Meglévő config betöltése
+            saved = {}
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    saved = json.load(f)
+
+            # Mezők frissítése (üres értékeket nem írjuk felül)
+            field_map = {
+                'ctrader_client_id':     'CTRADER_CLIENT_ID',
+                'ctrader_client_secret': 'CTRADER_CLIENT_SECRET',
+                'ctrader_account_id':    'CTRADER_ACCOUNT_ID',
+                'anthropic_api_key':     'ANTHROPIC_API_KEY',
+                'max_positions':         'MAX_OPEN_POSITIONS',
+                'risk_per_trade':        'MAX_RISK_PER_TRADE',
+            }
+            for form_key, env_key in field_map.items():
+                val = data.get(form_key, '').strip()
+                if val:
+                    saved[env_key] = val
+                    os.environ[env_key] = val  # azonnal érvényes a futó processben
+
+            with open(config_file, 'w') as f:
+                json.dump(saved, f, indent=2)
+
+            logger.info(f"Konfiguráció mentve: {list(saved.keys())}")
+            return jsonify({'success': True, 'message': 'Konfiguráció sikeresen mentve!'})
         except Exception as e:
             return jsonify({'success': False, 'message': str(e)})
 
