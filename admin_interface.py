@@ -20,16 +20,12 @@ from mcp_server import CTraderMCPServer
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.secret_key = os.getenv('SESSION_SECRET', os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production'))
 
-# CORS engedélyezése GitHub Pages számára
+# CORS engedélyezése - Replit proxy és GitHub Pages
 CORS(app, resources={
     r"/api/*": {
-        "origins": [
-            "https://boddav.github.io",
-            "http://localhost:*",
-            "http://127.0.0.1:*"
-        ]
+        "origins": "*"
     }
 })
 
