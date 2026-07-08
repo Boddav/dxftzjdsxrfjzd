@@ -2,6 +2,7 @@
 
 # Credentials & Secrets
 credentials.json
+config.json
 .env
 *.key
 *.pem
