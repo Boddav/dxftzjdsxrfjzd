@@ -231,8 +231,11 @@ def _exchange_code_for_tokens(code, redirect_uri=None):
         'client_id': client_id,
         'client_secret': client_secret
     })
+    logger.info(f"cTrader token válasz [{resp.status_code}]: {resp.text}")
     resp.raise_for_status()
     tokens = resp.json()
+    if 'access_token' not in tokens:
+        raise ValueError(f"cTrader hibaválasz: {tokens}")
     access_token = tokens['access_token']
     refresh_token = tokens['refresh_token']
     logger.info("✅ cTrader access token kapva")
