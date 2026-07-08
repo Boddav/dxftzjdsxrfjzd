@@ -19,38 +19,47 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# cTrader API konfiguráció
-CLIENT_ID = "13617_NoiIy9DOCJXwKnJEE0mWHGPQZFvkSZfIKDrJ6paJv6cL05JAR5"
-CLIENT_SECRET = "M6qpm5h25hDHsq31SFvi4lwxWII0S829sJxeG14cz56QDFrzFC"
+# cTrader API konfiguráció — env vars-ból olvas
+from dotenv import load_dotenv
+load_dotenv()
+
+CLIENT_ID = os.getenv('CTRADER_CLIENT_ID', '')
+CLIENT_SECRET = os.getenv('CTRADER_CLIENT_SECRET', '')
 PORT = 8080
 
-# API Endpoints (CORRECT URLs for cTrader OAuth)
-AUTH_URL = "https://id.ctrader.com/my/settings/openapi/grantingaccess/"
+# API Endpoints
+AUTH_URL = "https://openapi.ctrader.com/apps/auth"
 TOKEN_URL = "https://openapi.ctrader.com/apps/token"
 ACCOUNTS_URL = "https://openapi.ctrader.com/apps/accounts"
 
 
-def detect_codespaces_url() -> str:
+def detect_public_url() -> str:
     """
-    Automatikusan észleli a GitHub Codespaces URL-t
+    Automatikusan észleli a publikus callback URL-t (Replit, Codespaces, vagy localhost)
 
     Returns:
-        str: Redirect URI (Codespaces URL vagy localhost)
+        str: Redirect URI
     """
+    # Replit környezet
+    replit_domain = os.getenv('REPLIT_DEV_DOMAIN')
+    if replit_domain:
+        redirect_uri = f"https://{replit_domain}/callback"
+        logger.info(f"🚀 Replit környezet észlelve: {redirect_uri}")
+        return redirect_uri
+
     # GitHub Codespaces környezeti változók
     codespace_name = os.getenv('CODESPACE_NAME')
     github_codespaces_port_forwarding_domain = os.getenv('GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN')
 
     if codespace_name and github_codespaces_port_forwarding_domain:
-        # Codespaces URL formátum: https://{codespace_name}-{port}.{domain}
         redirect_uri = f"https://{codespace_name}-{PORT}.{github_codespaces_port_forwarding_domain}/callback"
         logger.info(f"🚀 GitHub Codespaces észlelve: {redirect_uri}")
         return redirect_uri
-    else:
-        # Helyi fejlesztés
-        redirect_uri = f"http://localhost:{PORT}/callback"
-        logger.info(f"💻 Helyi környezet: {redirect_uri}")
-        return redirect_uri
+
+    # Helyi fejlesztés
+    redirect_uri = f"http://localhost:{PORT}/callback"
+    logger.info(f"💻 Helyi környezet: {redirect_uri}")
+    return redirect_uri
 
 
 class OAuthHandler(BaseHTTPRequestHandler):
@@ -71,13 +80,8 @@ class OAuthHandler(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
 
-            redirect_uri = detect_codespaces_url()
-
-            # cTrader OAuth URL with correct format
+            redirect_uri = detect_public_url()
             auth_url = f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={redirect_uri}&scope=trading"
-
-            logger.info(f"🔐 Redirect URI: {redirect_uri}")
-            logger.info(f"🌐 Auth URL: {auth_url}")
 
             html = f"""
             <!DOCTYPE html>
@@ -264,99 +268,8 @@ class OAuthHandler(BaseHTTPRequestHandler):
 
                     self.wfile.write(html.encode('utf-8'))
                 else:
-                    # Hiba történt - részletes hibaüzenet
-                    self.send_response(500)
-                    self.send_header('Content-type', 'text/html; charset=utf-8')
-                    self.end_headers()
-
-                    html = """
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <title>OAuth Hiba</title>
-                        <style>
-                            body {
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                                display: flex;
-                                justify-content: center;
-                                align-items: center;
-                                min-height: 100vh;
-                                margin: 0;
-                                padding: 20px;
-                            }
-                            .container {
-                                background: white;
-                                border-radius: 20px;
-                                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                                padding: 50px;
-                                max-width: 700px;
-                                text-align: center;
-                            }
-                            .icon { font-size: 80px; margin-bottom: 20px; }
-                            h1 { color: #f5576c; margin-bottom: 20px; }
-                            p { color: #666; line-height: 1.6; margin-bottom: 15px; }
-                            .error-box {
-                                background: #f8d7da;
-                                border: 1px solid #f5c6cb;
-                                border-radius: 10px;
-                                padding: 20px;
-                                margin-top: 20px;
-                                text-align: left;
-                            }
-                            code {
-                                background: #f8f9fa;
-                                padding: 2px 6px;
-                                border-radius: 3px;
-                                font-family: 'Courier New', monospace;
-                            }
-                            .help-section {
-                                background: #fff3cd;
-                                border: 1px solid #ffeaa7;
-                                border-radius: 10px;
-                                padding: 20px;
-                                margin-top: 20px;
-                                text-align: left;
-                            }
-                            .help-section h3 { color: #856404; margin-bottom: 10px; }
-                            .help-section ol { margin-left: 20px; }
-                            .help-section li { margin-bottom: 8px; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="container">
-                            <div class="icon">❌</div>
-                            <h1>OAuth Hiba</h1>
-                            <p>Token csere sikertelen. Nézd meg a konzol naplókat a részletekért.</p>
-
-                            <div class="error-box">
-                                <strong>🔍 Lehetséges okok:</strong><br><br>
-                                <ul style="text-align: left; margin-left: 20px;">
-                                    <li><code>Client ID</code> vagy <code>Client Secret</code> hibás</li>
-                                    <li><code>Redirect URI</code> nem egyezik a cTrader app beállításaival</li>
-                                    <li>cTrader API hiba (átmeneti)</li>
-                                    <li>Lejárt authorization code</li>
-                                </ul>
-                            </div>
-
-                            <div class="help-section">
-                                <h3>🛠️ Hogyan javítsd:</h3>
-                                <ol>
-                                    <li>Menj: <a href="https://connect.spotware.com/apps" target="_blank">cTrader Apps</a></li>
-                                    <li>Ellenőrizd a <strong>Redirect URI</strong> beállítást</li>
-                                    <li>Próbáld újra az OAuth flow-t</li>
-                                    <li>Nézd meg a Python konzol logokat</li>
-                                </ol>
-                            </div>
-
-                            <p style="margin-top: 30px; color: #999;">Bezárhatod ezt az ablakot és próbáld újra.</p>
-                        </div>
-                    </body>
-                    </html>
-                    """
-
-                    self.wfile.write(html.encode('utf-8'))
+                    # Hiba történt
+                    self.send_error(500, "Token csere sikertelen")
             else:
                 # Nincs authorization code
                 self.send_error(400, "Hiányzó authorization code")
@@ -371,7 +284,7 @@ class OAuthHandler(BaseHTTPRequestHandler):
             bool: Sikeres-e a művelet
         """
         try:
-            redirect_uri = detect_codespaces_url()
+            redirect_uri = detect_public_url()
 
             # Token kérés
             token_data = {
@@ -384,30 +297,11 @@ class OAuthHandler(BaseHTTPRequestHandler):
 
             logger.info("🔄 Token csere folyamatban...")
             response = requests.post(TOKEN_URL, data=token_data)
-
-            # Debug: log response
-            logger.info(f"Response status: {response.status_code}")
-            logger.info(f"Response headers: {dict(response.headers)}")
-
             response.raise_for_status()
 
             token_response = response.json()
-            logger.info(f"Token response keys: {list(token_response.keys())}")
-
-            # Ellenőrzés: van-e access_token (camelCase vagy snake_case)
-            if 'access_token' in token_response:
-                OAuthHandler.access_token = token_response['access_token']
-                OAuthHandler.refresh_token = token_response.get('refresh_token')
-            elif 'accessToken' in token_response:
-                OAuthHandler.access_token = token_response['accessToken']
-                OAuthHandler.refresh_token = token_response.get('refreshToken')
-            elif 'error' in token_response:
-                error_msg = token_response.get('error_description', token_response['error'])
-                logger.error(f"❌ OAuth error: {error_msg}")
-                raise Exception(f"OAuth error: {error_msg}")
-            else:
-                logger.error(f"❌ Unexpected response: {token_response}")
-                raise Exception(f"Missing access_token in response. Got keys: {list(token_response.keys())}")
+            OAuthHandler.access_token = token_response['access_token']
+            OAuthHandler.refresh_token = token_response['refresh_token']
 
             logger.info("✅ Access token kapva!")
 
@@ -459,7 +353,7 @@ class OAuthHandler(BaseHTTPRequestHandler):
             'accessToken': OAuthHandler.access_token,
             'refreshToken': OAuthHandler.refresh_token,
             'accountId': OAuthHandler.account_id,
-            'redirectUri': detect_codespaces_url()
+            'redirectUri': detect_public_url()
         }
 
         with open('credentials.json', 'w') as f:
@@ -478,7 +372,7 @@ def main():
     print("🤖 AI Trading Advisor - cTrader OAuth Setup")
     print("=" * 60)
 
-    redirect_uri = detect_codespaces_url()
+    redirect_uri = detect_public_url()
     print(f"\n📍 Redirect URI: {redirect_uri}")
     print(f"🌐 Server Port: {PORT}\n")
 
