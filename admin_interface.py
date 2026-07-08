@@ -268,15 +268,26 @@ def api_logs():
 #     pass
 
 
-OAUTH_REDIRECT_URI_LOCALHOST = "http://localhost:8080/callback"
-
-
 def _get_redirect_uri():
-    """Visszaadja a helyes redirect URI-t (Replit vagy localhost)."""
+    """Visszaadja a helyes redirect URI-t (Replit, GitHub Codespaces vagy localhost).
+
+    A callback route az admin felület portján (ADMIN_PORT, alap: 5000) fut.
+    """
+    port = os.getenv('ADMIN_PORT', '5000')
+
+    # Replit környezet
     replit_domain = os.getenv('REPLIT_DEV_DOMAIN', '')
     if replit_domain:
         return f"https://{replit_domain}/callback"
-    return OAUTH_REDIRECT_URI_LOCALHOST
+
+    # GitHub Codespaces környezet (pl. https://<name>-5000.app.github.dev/callback)
+    codespace_name = os.getenv('CODESPACE_NAME', '')
+    gh_domain = os.getenv('GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN', '')
+    if codespace_name and gh_domain:
+        return f"https://{codespace_name}-{port}.{gh_domain}/callback"
+
+    # Helyi fejlesztés
+    return f"http://localhost:{port}/callback"
 
 
 def _exchange_code_for_tokens(code, redirect_uri=None):

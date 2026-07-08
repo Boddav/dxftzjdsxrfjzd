@@ -1,8 +1,13 @@
 {
   "name": "AI Trading Advisor",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
-  "forwardPorts": [8080, 8081],
+  "forwardPorts": [5000, 8080, 8081],
   "portsAttributes": {
+    "5000": {
+      "label": "Admin Interface",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    },
     "8080": {
       "label": "OAuth Server",
       "onAutoForward": "notify",
