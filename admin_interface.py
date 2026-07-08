@@ -128,14 +128,43 @@ def api_stop_bot():
 def api_positions():
     """Aktuális pozíciók lekérése"""
     try:
-        if bot_instance and bot_instance.mcp_server:
-            # TODO: Implement position retrieval from cTrader
-            positions = []
-            return jsonify({'success': True, 'positions': positions})
-        else:
-            return jsonify({'success': False, 'message': 'Bot nem fut'})
+        return jsonify({'success': True, 'positions': bot_status.get('positions', [])})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
+
+
+@app.route('/api/test-position', methods=['POST'])
+def api_test_position():
+    """Teszt pozíció hozzáadása a dashboardhoz"""
+    import random
+    symbols = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY']
+    symbol = random.choice(symbols)
+    side = random.choice(['BUY', 'SELL'])
+    open_price = round(random.uniform(1800, 2050) if symbol == 'XAUUSD' else random.uniform(1.05, 1.15), 5)
+    current_price = round(open_price + random.uniform(-5, 5) if symbol == 'XAUUSD' else open_price + random.uniform(-0.005, 0.005), 5)
+    pnl = round((current_price - open_price) * (1 if side == 'BUY' else -1) * 100, 2)
+
+    pos = {
+        'id': random.randint(10000, 99999),
+        'symbol': symbol,
+        'type': side,
+        'volume': round(random.uniform(0.01, 0.1), 2),
+        'openPrice': open_price,
+        'currentPrice': current_price,
+        'pnl': pnl,
+        'openTime': datetime.now().isoformat()
+    }
+    bot_status['positions'].append(pos)
+    bot_status['last_update'] = datetime.now().isoformat()
+    logger.info(f"Teszt pozíció hozzáadva: {symbol} {side} @ {open_price}")
+    return jsonify({'success': True, 'position': pos})
+
+
+@app.route('/api/clear-positions', methods=['POST'])
+def api_clear_positions():
+    """Összes pozíció törlése"""
+    bot_status['positions'] = []
+    return jsonify({'success': True})
 
 
 @app.route('/api/history')

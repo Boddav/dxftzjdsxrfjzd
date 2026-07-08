@@ -159,6 +159,32 @@ function formatTime(timestamp) {
 }
 
 function showNotification(message, type) {
-    // Egyszerű értesítés (később lehet alert helyett toast)
-    alert(message);
+    const el = document.getElementById('notification');
+    if (el) {
+        el.textContent = message;
+        el.className = 'notification ' + type;
+        el.style.display = 'block';
+        setTimeout(() => { el.style.display = 'none'; }, 3000);
+    } else {
+        alert(message);
+    }
+}
+
+async function addTestPosition() {
+    try {
+        const response = await fetch('/api/test-position', { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            loadPositions();
+            updateStatus();
+        }
+    } catch (error) { console.error(error); }
+}
+
+async function clearPositions() {
+    try {
+        await fetch('/api/clear-positions', { method: 'POST' });
+        loadPositions();
+        updateStatus();
+    } catch (error) { console.error(error); }
 }
