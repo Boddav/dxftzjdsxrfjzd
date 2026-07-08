@@ -19,9 +19,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# cTrader API konfiguráció
-CLIENT_ID = "13617_NoiIy9DOCJXwKnJEE0mWHGPQZFvkSZfIKDrJ6paJv6cL05JAR5"
-CLIENT_SECRET = "M6qpm5h25hDHsq31SFvi4lwxWII0S829sJxeG14cz56QDFrzFC"
+# cTrader API konfiguráció — env vars-ból olvas
+from dotenv import load_dotenv
+load_dotenv()
+
+CLIENT_ID = os.getenv('CTRADER_CLIENT_ID', '')
+CLIENT_SECRET = os.getenv('CTRADER_CLIENT_SECRET', '')
 PORT = 8080
 
 # API Endpoints
@@ -30,27 +33,33 @@ TOKEN_URL = "https://openapi.ctrader.com/apps/token"
 ACCOUNTS_URL = "https://openapi.ctrader.com/apps/accounts"
 
 
-def detect_codespaces_url() -> str:
+def detect_public_url() -> str:
     """
-    Automatikusan észleli a GitHub Codespaces URL-t
+    Automatikusan észleli a publikus callback URL-t (Replit, Codespaces, vagy localhost)
 
     Returns:
-        str: Redirect URI (Codespaces URL vagy localhost)
+        str: Redirect URI
     """
+    # Replit környezet
+    replit_domain = os.getenv('REPLIT_DEV_DOMAIN')
+    if replit_domain:
+        redirect_uri = f"https://{replit_domain}/callback"
+        logger.info(f"🚀 Replit környezet észlelve: {redirect_uri}")
+        return redirect_uri
+
     # GitHub Codespaces környezeti változók
     codespace_name = os.getenv('CODESPACE_NAME')
     github_codespaces_port_forwarding_domain = os.getenv('GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN')
 
     if codespace_name and github_codespaces_port_forwarding_domain:
-        # Codespaces URL formátum: https://{codespace_name}-{port}.{domain}
         redirect_uri = f"https://{codespace_name}-{PORT}.{github_codespaces_port_forwarding_domain}/callback"
         logger.info(f"🚀 GitHub Codespaces észlelve: {redirect_uri}")
         return redirect_uri
-    else:
-        # Helyi fejlesztés
-        redirect_uri = f"http://localhost:{PORT}/callback"
-        logger.info(f"💻 Helyi környezet: {redirect_uri}")
-        return redirect_uri
+
+    # Helyi fejlesztés
+    redirect_uri = f"http://localhost:{PORT}/callback"
+    logger.info(f"💻 Helyi környezet: {redirect_uri}")
+    return redirect_uri
 
 
 class OAuthHandler(BaseHTTPRequestHandler):
@@ -71,7 +80,7 @@ class OAuthHandler(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
 
-            redirect_uri = detect_codespaces_url()
+            redirect_uri = detect_public_url()
             auth_url = f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={redirect_uri}&scope=trading"
 
             html = f"""
@@ -275,7 +284,7 @@ class OAuthHandler(BaseHTTPRequestHandler):
             bool: Sikeres-e a művelet
         """
         try:
-            redirect_uri = detect_codespaces_url()
+            redirect_uri = detect_public_url()
 
             # Token kérés
             token_data = {
@@ -344,7 +353,7 @@ class OAuthHandler(BaseHTTPRequestHandler):
             'accessToken': OAuthHandler.access_token,
             'refreshToken': OAuthHandler.refresh_token,
             'accountId': OAuthHandler.account_id,
-            'redirectUri': detect_codespaces_url()
+            'redirectUri': detect_public_url()
         }
 
         with open('credentials.json', 'w') as f:
@@ -363,7 +372,7 @@ def main():
     print("🤖 AI Trading Advisor - cTrader OAuth Setup")
     print("=" * 60)
 
-    redirect_uri = detect_codespaces_url()
+    redirect_uri = detect_public_url()
     print(f"\n📍 Redirect URI: {redirect_uri}")
     print(f"🌐 Server Port: {PORT}\n")
 

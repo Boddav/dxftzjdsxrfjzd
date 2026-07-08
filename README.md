@@ -1,8 +1,12 @@
 # 🤖 AI Trading Advisor
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=Boddav/dxftzjdsxrfjzd)
+
 **Claude AI alapú automatizált trading bot cTrader API-val**
 
 GitHub Codespaces kompatibilis, teljes körű AI trading megoldás arany (XAUUSD) és forex kereskedéshez.
+
+> 🚀 **[Codespaces Setup Útmutató](./CODESPACES_SETUP.md)** - Részletes lépésről lépésre útmutató Codespaces-hez
 
 ---
 
