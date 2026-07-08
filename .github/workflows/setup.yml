@@ -54,6 +54,7 @@ jobs:
         python -m py_compile ctrader_oauth_setup.py
         python -m py_compile mcp_server.py
         python -m py_compile ai_trading_advisor.py
+        python -m py_compile admin_interface.py
         echo "✅ All Python files are syntactically correct!"
 
     - name: Check dependencies
