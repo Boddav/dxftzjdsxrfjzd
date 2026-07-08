@@ -1,17 +1,17 @@
 {
   "name": "AI Trading Advisor",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
-  "forwardPorts": [8080, 8081],
+  "forwardPorts": [5000, 8080],
   "portsAttributes": {
+    "5000": {
+      "label": "Admin UI",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    },
     "8080": {
       "label": "OAuth Server",
       "onAutoForward": "notify",
       "visibility": "public"
-    },
-    "8081": {
-      "label": "MCP Server",
-      "onAutoForward": "silent",
-      "visibility": "private"
     }
   },
   "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
@@ -27,11 +27,16 @@
         "python.linting.enabled": true,
         "python.linting.pylintEnabled": true,
         "python.formatting.provider": "black",
-        "editor.formatOnSave": true
+        "editor.formatOnSave": true,
+        "terminal.integrated.defaultProfile.linux": "bash"
       }
     }
   },
   "features": {
     "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "remoteEnv": {
+    "FLASK_ENV": "development",
+    "PYTHONUNBUFFERED": "1"
   }
 }
