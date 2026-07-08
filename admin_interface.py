@@ -31,12 +31,24 @@ if os.path.exists(_config_file):
 app = Flask(__name__)
 app.secret_key = os.getenv('SESSION_SECRET', os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production'))
 
+# Template cache kikapcsolása fejlesztéshez
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
 # CORS engedélyezése - Replit proxy és GitHub Pages
 CORS(app, resources={
     r"/api/*": {
         "origins": "*"
     }
 })
+
+# Cache-busting headers minden response-hoz
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 # Globális bot instance
 bot_instance = None
