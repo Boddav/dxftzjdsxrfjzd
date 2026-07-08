@@ -174,10 +174,57 @@ def api_config():
         # Konfiguráció mentése .env fájlba
         try:
             data = request.json
-            # TODO: Implement .env file update
-            return jsonify({'success': True, 'message': 'Konfiguráció mentve'})
+
+            # .env fájl frissítése/létrehozása
+            env_file = '.env'
+            env_vars = {}
+
+            # Beolvasás meglévő .env fájlból (ha létezik)
+            if os.path.exists(env_file):
+                with open(env_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            key, value = line.split('=', 1)
+                            env_vars[key.strip()] = value.strip()
+
+            # Frissítés az új adatokkal
+            if 'anthropic_api_key' in data and data['anthropic_api_key']:
+                env_vars['ANTHROPIC_API_KEY'] = data['anthropic_api_key']
+
+            if 'ctrader_client_id' in data and data['ctrader_client_id']:
+                env_vars['CTRADER_CLIENT_ID'] = data['ctrader_client_id']
+
+            if 'ctrader_client_secret' in data and data['ctrader_client_secret']:
+                env_vars['CTRADER_CLIENT_SECRET'] = data['ctrader_client_secret']
+
+            if 'ctrader_account_id' in data and data['ctrader_account_id']:
+                env_vars['CTRADER_ACCOUNT_ID'] = data['ctrader_account_id']
+
+            if 'max_positions' in data:
+                env_vars['MAX_POSITIONS'] = str(data['max_positions'])
+
+            if 'risk_per_trade' in data:
+                env_vars['RISK_PER_TRADE'] = str(data['risk_per_trade'])
+
+            # .env fájl írása
+            with open(env_file, 'w') as f:
+                f.write("# AI Trading Advisor - Environment Variables\n")
+                f.write(f"# Updated: {datetime.now().isoformat()}\n\n")
+
+                for key, value in env_vars.items():
+                    f.write(f"{key}={value}\n")
+
+            # Environment változók frissítése a futó alkalmazásban
+            for key, value in env_vars.items():
+                os.environ[key] = value
+
+            logger.info("Konfiguráció sikeresen mentve .env fájlba")
+            return jsonify({'success': True, 'message': 'Konfiguráció sikeresen mentve!'})
+
         except Exception as e:
-            return jsonify({'success': False, 'message': str(e)})
+            logger.error(f"Konfiguráció mentési hiba: {str(e)}")
+            return jsonify({'success': False, 'message': f'Mentési hiba: {str(e)}'})
 
 
 @app.route('/logs')
