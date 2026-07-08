@@ -259,8 +259,99 @@ class OAuthHandler(BaseHTTPRequestHandler):
 
                     self.wfile.write(html.encode('utf-8'))
                 else:
-                    # Hiba történt
-                    self.send_error(500, "Token csere sikertelen")
+                    # Hiba történt - részletes hibaüzenet
+                    self.send_response(500)
+                    self.send_header('Content-type', 'text/html; charset=utf-8')
+                    self.end_headers()
+
+                    html = """
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>OAuth Hiba</title>
+                        <style>
+                            body {
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                min-height: 100vh;
+                                margin: 0;
+                                padding: 20px;
+                            }
+                            .container {
+                                background: white;
+                                border-radius: 20px;
+                                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                                padding: 50px;
+                                max-width: 700px;
+                                text-align: center;
+                            }
+                            .icon { font-size: 80px; margin-bottom: 20px; }
+                            h1 { color: #f5576c; margin-bottom: 20px; }
+                            p { color: #666; line-height: 1.6; margin-bottom: 15px; }
+                            .error-box {
+                                background: #f8d7da;
+                                border: 1px solid #f5c6cb;
+                                border-radius: 10px;
+                                padding: 20px;
+                                margin-top: 20px;
+                                text-align: left;
+                            }
+                            code {
+                                background: #f8f9fa;
+                                padding: 2px 6px;
+                                border-radius: 3px;
+                                font-family: 'Courier New', monospace;
+                            }
+                            .help-section {
+                                background: #fff3cd;
+                                border: 1px solid #ffeaa7;
+                                border-radius: 10px;
+                                padding: 20px;
+                                margin-top: 20px;
+                                text-align: left;
+                            }
+                            .help-section h3 { color: #856404; margin-bottom: 10px; }
+                            .help-section ol { margin-left: 20px; }
+                            .help-section li { margin-bottom: 8px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="icon">❌</div>
+                            <h1>OAuth Hiba</h1>
+                            <p>Token csere sikertelen. Nézd meg a konzol naplókat a részletekért.</p>
+
+                            <div class="error-box">
+                                <strong>🔍 Lehetséges okok:</strong><br><br>
+                                <ul style="text-align: left; margin-left: 20px;">
+                                    <li><code>Client ID</code> vagy <code>Client Secret</code> hibás</li>
+                                    <li><code>Redirect URI</code> nem egyezik a cTrader app beállításaival</li>
+                                    <li>cTrader API hiba (átmeneti)</li>
+                                    <li>Lejárt authorization code</li>
+                                </ul>
+                            </div>
+
+                            <div class="help-section">
+                                <h3>🛠️ Hogyan javítsd:</h3>
+                                <ol>
+                                    <li>Menj: <a href="https://connect.spotware.com/apps" target="_blank">cTrader Apps</a></li>
+                                    <li>Ellenőrizd a <strong>Redirect URI</strong> beállítást</li>
+                                    <li>Próbáld újra az OAuth flow-t</li>
+                                    <li>Nézd meg a Python konzol logokat</li>
+                                </ol>
+                            </div>
+
+                            <p style="margin-top: 30px; color: #999;">Bezárhatod ezt az ablakot és próbáld újra.</p>
+                        </div>
+                    </body>
+                    </html>
+                    """
+
+                    self.wfile.write(html.encode('utf-8'))
             else:
                 # Nincs authorization code
                 self.send_error(400, "Hiányzó authorization code")
@@ -288,11 +379,30 @@ class OAuthHandler(BaseHTTPRequestHandler):
 
             logger.info("🔄 Token csere folyamatban...")
             response = requests.post(TOKEN_URL, data=token_data)
+
+            # Debug: log response
+            logger.info(f"Response status: {response.status_code}")
+            logger.info(f"Response headers: {dict(response.headers)}")
+
             response.raise_for_status()
 
             token_response = response.json()
-            OAuthHandler.access_token = token_response['access_token']
-            OAuthHandler.refresh_token = token_response['refresh_token']
+            logger.info(f"Token response keys: {list(token_response.keys())}")
+
+            # Ellenőrzés: van-e access_token (camelCase vagy snake_case)
+            if 'access_token' in token_response:
+                OAuthHandler.access_token = token_response['access_token']
+                OAuthHandler.refresh_token = token_response.get('refresh_token')
+            elif 'accessToken' in token_response:
+                OAuthHandler.access_token = token_response['accessToken']
+                OAuthHandler.refresh_token = token_response.get('refreshToken')
+            elif 'error' in token_response:
+                error_msg = token_response.get('error_description', token_response['error'])
+                logger.error(f"❌ OAuth error: {error_msg}")
+                raise Exception(f"OAuth error: {error_msg}")
+            else:
+                logger.error(f"❌ Unexpected response: {token_response}")
+                raise Exception(f"Missing access_token in response. Got keys: {list(token_response.keys())}")
 
             logger.info("✅ Access token kapva!")
 
