@@ -18,6 +18,7 @@ import requests as http_requests
 # Saját modulok
 from ai_trading_advisor import AITradingAdvisor
 from mcp_server import CTraderMCPServer
+from mcp_connection_manager import run_shared
 
 load_dotenv()
 
@@ -254,33 +255,28 @@ def _run_async(coro):
         loop.close()
 
 
-async def _fetch_real_positions():
-    server = CTraderMCPServer()
-    try:
-        await server.connect()
-        await server.get_symbols_list()  # symbolId -> symbolName cache feltöltése
-        raw_positions = await server.get_positions()
+async def _fetch_real_positions(server):
+    await server.get_symbols_list()  # symbolId -> symbolName cache feltöltése
+    raw_positions = await server.get_positions()
 
-        id_to_name = {s.get('symbolId'): name for name, s in server.symbols_cache.items()}
-        positions = []
-        for p in raw_positions:
-            symbol_name = id_to_name.get(p.get('symbol_id'), f"ID:{p.get('symbol_id')}")
-            entry_price = p.get('entry_price') or 0
-            lots = round((p.get('volume') or 0) / 10_000_000, 2)
+    id_to_name = {s.get('symbolId'): name for name, s in server.symbols_cache.items()}
+    positions = []
+    for p in raw_positions:
+        symbol_name = id_to_name.get(p.get('symbol_id'), f"ID:{p.get('symbol_id')}")
+        entry_price = p.get('entry_price') or 0
+        lots = round((p.get('volume') or 0) / 10_000_000, 2)
 
-            positions.append({
-                'id': p.get('position_id'),
-                'symbol': symbol_name,
-                'type': p.get('side'),
-                'volume': lots,
-                'openPrice': entry_price,
-                'currentPrice': entry_price,
-                'pnl': round(-(p.get('swap') or 0) + -(p.get('commission') or 0), 2),
-                'openTime': p.get('timestamp')
-            })
-        return positions
-    finally:
-        await server.close()
+        positions.append({
+            'id': p.get('position_id'),
+            'symbol': symbol_name,
+            'type': p.get('side'),
+            'volume': lots,
+            'openPrice': entry_price,
+            'currentPrice': entry_price,
+            'pnl': round(-(p.get('swap') or 0) + -(p.get('commission') or 0), 2),
+            'openTime': p.get('timestamp')
+        })
+    return positions
 
 
 @app.route('/api/positions')
@@ -289,7 +285,7 @@ def api_positions():
     try:
         if not os.path.exists('credentials.json'):
             return jsonify({'success': False, 'message': 'Nincs cTrader azonosítás (lásd Azonosítás gomb)'})
-        positions = _run_async(_fetch_real_positions())
+        positions = run_shared(_fetch_real_positions)
         return jsonify({'success': True, 'positions': positions})
     except Exception as e:
         logger.error(f"Pozíciók lekérési hiba: {e}")
@@ -308,15 +304,10 @@ def api_test_position():
         side = data.get('side', 'BUY')
         lots = float(data.get('lots', 0.01))
 
-        async def _place():
-            server = CTraderMCPServer()
-            try:
-                await server.connect()
-                return await server.place_order(symbol=symbol, side=side, lots=lots)
-            finally:
-                await server.close()
+        async def _place(server):
+            return await server.place_order(symbol=symbol, side=side, lots=lots)
 
-        result = _run_async(_place())
+        result = run_shared(_place)
 
         if result.get('success'):
             logger.info(f"Teszt megbízás elküldve a demo számlára: {symbol} {side} {lots} lot")

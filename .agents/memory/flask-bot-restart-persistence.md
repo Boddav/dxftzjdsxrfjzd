@@ -1,9 +1,15 @@
 ---
 name: Flask bot in-memory state and restarts
-description: A background trading/worker thread's running state must survive Flask process restarts, not just live in memory.
+description: Bot run/stop state persistence, and shared MCP connection pattern for admin API endpoints.
 ---
 
-## In-memory `running` flags silently die on restart
-A Flask app that tracks a long-running background thread (trading bot, worker loop, etc.) purely via an in-memory global (`bot_status['running']`) loses that state on any process restart — workflow restart, code redeploy, crash — without any error. The user only notices later because "nothing happened" (e.g. no trades placed), which looks like a business-logic bug rather than an infra one.
-**Why:** Replit workflow restarts (including ones triggered by the agent itself while debugging unrelated code) kill and respawn the process; nothing preserves thread state across that boundary unless explicitly persisted.
-**How to apply:** Persist the intended run state (running flag + relevant config like symbol list) to a small JSON file on start/stop, and on process startup check that file and auto-resume if it says the bot should be running. Also persist `running=false` when the worker thread exits on its own (error or natural stop), not just on the explicit stop endpoint — otherwise a crashed-and-not-restarted bot can wrongly auto-resume next boot. Guard the startup auto-resume call against Flask's debug-mode reloader double-invoking module-level code (check `WERKZEUG_RUN_MAIN` or `debug` flag), and wrap it in try/except so a resume failure never blocks the web server from coming up.
+Bot run/stop state must be persisted to disk and resumed on startup, or workflow restarts silently kill trading.
+
+## Shared cTrader MCP connection for admin API endpoints
+**Why:** Admin routes (`/api/positions`, `/api/test-position`) originally created a brand-new `CTraderMCPServer` and re-authenticated with cTrader on every single HTTP request, separate from the bot's own persistent connection. This caused excess WebSocket churn, `keepalive ping timeout` errors, and intermittent "no candle data" failures.
+
+**How to apply:** `mcp_connection_manager.py` runs a dedicated background thread with its own asyncio event loop, holding one singleton `CTraderMCPServer` connection reused across requests (via `run_shared(async_func)`). Key details to preserve if touching this file:
+- Flask routes are synchronous and run on their own thread(s); the shared connection lives on a separate loop, so all access goes through `asyncio.run_coroutine_threadsafe`, never by importing the loop object directly.
+- Reconnect-on-failure is intentionally scoped to connection/auth-like errors only (`_looks_like_connection_error`) — business-logic errors (e.g. `NOT_ENOUGH_MONEY`) must NOT trigger a retry, since retrying a non-idempotent `place_order` could double-submit a trade.
+- On timeout, the in-flight future is cancelled and the shared server is invalidated so a hung call doesn't block future requests.
+- On a failed `connect()`, the partially-opened socket must be explicitly closed before discarding the server object, or the raw socket leaks.
