@@ -179,20 +179,28 @@ def api_status():
     (nyitott/zárt) kereskedésekre vonatkozó számokat.
     """
     status = dict(bot_status)
+    open_positions = []
     try:
         if os.path.exists('credentials.json'):
-            positions = _get_real_positions_cached()
-            status['positions'] = positions
-            status['open_positions_count'] = len(positions)
+            open_positions = _get_real_positions_cached()
+            status['positions'] = open_positions
+            status['open_positions_count'] = len(open_positions)
         else:
-            status['open_positions_count'] = len(status.get('positions') or [])
+            open_positions = status.get('positions') or []
+            status['open_positions_count'] = len(open_positions)
     except Exception as e:
         logger.error(f"Státusz - pozíciók lekérési hiba: {e}")
-        status['open_positions_count'] = len(status.get('positions') or [])
+        open_positions = status.get('positions') or []
+        status['open_positions_count'] = len(open_positions)
 
-    trades_today, pnl_today = _get_today_trade_stats()
+    trades_today, realized_pnl_today = _get_today_trade_stats()
     status['trades_today'] = trades_today
-    status['pnl_today'] = pnl_today
+    # A dashboard "Nyitott P&L" kártyája a JELENLEG nyitott pozíciók élő,
+    # nem realizált P&L összegét mutatja (nem a mai realizált eredményt -
+    # arra külön 'realized_pnl_today' mező szolgál, ha később kell egy
+    # "Mai realizált P&L" kártya is).
+    status['pnl_today'] = round(sum(p.get('pnl', 0) or 0 for p in open_positions), 2)
+    status['realized_pnl_today'] = realized_pnl_today
     return jsonify(status)
 
 
