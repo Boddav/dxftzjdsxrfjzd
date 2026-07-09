@@ -353,12 +353,58 @@ class AITradingAdvisor:
                         break
                     await asyncio.sleep(5)
 
+                # A websocket kapcsolat keepalive ping timeout-tal elszállhat
+                # (pl. a szinkron Anthropic hívás vagy hálózati hiba miatt).
+                # A self.mcp_server.authenticated flag ilyenkor NEM esik le
+                # automatikusan, ezért anélkül a bot örökre halott socket-en
+                # próbálkozott volna (ismétlődő "keepalive ping timeout" a
+                # logban, sosem tér vissza) - minden ciklus végén ellenőrizzük
+                # és szükség esetén újracsatlakozunk.
+                if self.running and not self._connection_alive():
+                    logger.warning("⚠️ MCP kapcsolat megszakadt, újracsatlakozás...")
+                    try:
+                        await self.mcp_server.close()
+                    except Exception:
+                        pass
+                    try:
+                        await self.mcp_server.connect()
+                        logger.info("✅ MCP kapcsolat helyreállítva")
+                    except Exception as e:
+                        logger.error(f"❌ Újracsatlakozás sikertelen: {e}")
+
         except KeyboardInterrupt:
             logger.info("⚠️ Bot leállítva (KeyboardInterrupt)")
         except Exception as e:
             logger.error(f"❌ Hiba: {e}")
         finally:
             await self.stop()
+
+    @staticmethod
+    def _looks_like_connection_error(exc: Exception) -> bool:
+        """Kapcsolat-/authentikáció-jellegű hiba felismerése, hogy csak
+        ilyenkor próbáljunk azonnal újracsatlakozni (üzleti logikai hibákat,
+        pl. NOT_ENOUGH_MONEY, ne kezeljünk kapcsolat-hibaként)."""
+        if isinstance(exc, (ConnectionError, OSError, asyncio.TimeoutError)):
+            return True
+        text = str(exc).lower()
+        return any(k in text for k in ("connection", "websocket", "closed", "keepalive", "ping timeout"))
+
+    def _connection_alive(self) -> bool:
+        """
+        Megbízhatóbb kapcsolat-ellenőrzés, mint a self.mcp_server.authenticated
+        flag: az csak explicit connect()/close() hívásra vált, egy keepalive
+        ping timeout miatt elszállt socketet nem jelez.
+        """
+        ws = getattr(self.mcp_server, 'ws', None)
+        if ws is None or not self.mcp_server.authenticated:
+            return False
+        closed = getattr(ws, 'closed', None)
+        if closed is None:
+            # Régebbi websockets verziók 'close_code'-ot használnak; ha semmi
+            # nem elérhető, óvatosságból élőnek tekintjük (a következő hívás
+            # hibája majd amúgy is triggereli az újracsatlakozást).
+            return getattr(ws, 'close_code', None) is None
+        return not closed
 
     async def stop(self):
         """Bot leállítása"""
@@ -415,6 +461,18 @@ class AITradingAdvisor:
 
         except Exception as e:
             logger.error(f"❌ [{symbol}] Trading loop hiba: {e}")
+            if self._looks_like_connection_error(e):
+                # Ne várjunk a ciklus végéig (akár ~1 percig) egy elszállt
+                # kapcsolat újraélesztésével - azonnal próbáljunk
+                # újracsatlakozni, hogy a következő szimbólum (vagy a
+                # dashboard lekérdezései) minél előbb friss adatot kapjanak.
+                logger.warning("⚠️ Kapcsolat-jellegű hiba, azonnali újracsatlakozás...")
+                try:
+                    await self.mcp_server.close()
+                    await self.mcp_server.connect()
+                    logger.info("✅ MCP kapcsolat helyreállítva")
+                except Exception as reconnect_error:
+                    logger.error(f"❌ Újracsatlakozás sikertelen: {reconnect_error}")
 
     def _record_ai_decision(self, symbol: str, decision: Dict[str, Any], max_entries: int = 50):
         """Minden AI döntés (HOLD is) elmentése egy visszajelzési panelhez -

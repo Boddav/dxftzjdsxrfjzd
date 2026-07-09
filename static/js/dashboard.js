@@ -9,12 +9,16 @@ document.addEventListener('DOMContentLoaded', function() {
     loadHistory();
     loadAiDecisions();
 
-    // Automatikus frissítés 5 másodpercenként
+    // Automatikus frissítés - a pozíciók lekérése minden hívásnál élő
+    // árfolyam-lekérést (spot subscribe) is indít a cTrader API felé, ezért
+    // 5s helyett 15s a frissítési intervallum, hogy ne terheljük feleslegesen
+    // az API-t (ez a cTrader hívásokra vonatkozik, nem a Claude/Anthropic
+    // hívásokra - azok a bot saját, tőle független 1 perces ciklusában futnak).
     statusInterval = setInterval(() => {
         updateStatus();
         loadPositions();
         loadAiDecisions();
-    }, 5000);
+    }, 15000);
 });
 
 // Bot státusz frissítése

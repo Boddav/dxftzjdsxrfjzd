@@ -3,3 +3,4 @@
 - [Rendering raw LLM text in a dashboard](llm-text-rendering-safety.md) — never inject AI-generated text via innerHTML; use textContent, and write shared JSON state files atomically.
 - [Shared MCP connection manager](flask-bot-restart-persistence.md) — singleton background-loop cTrader connection for admin API routes; retry-scope and timeout-cancellation rules to preserve.
 - [Risk-based position sizing must be margin-aware](position-sizing-margin.md) — risk % alone isn't enough; cap lot size by available margin/leverage too, or high-notional symbols get rejected.
+- [MCP connection self-healing and dashboard polling load](mcp-reconnect-and-polling.md) — a keepalive drop doesn't reset the authenticated flag; check ws state too, reconnect immediately, and don't resubscribe spots every poll.

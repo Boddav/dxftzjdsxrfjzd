@@ -82,6 +82,11 @@ class CTraderMCPServer:
         self.symbols_cache: Dict[str, Dict] = {}
         self.symbol_details_cache: Dict[int, Dict] = {}
         self.spot_data_cache: Dict[int, Dict] = {}
+        # Melyik symbol_id-kre van már élő spot feliratkozásunk ezen a
+        # kapcsolaton - ha nem követnénk, minden get_market_data hívás
+        # (pl. minden dashboard poll) újra feliratkozna, feleslegesen
+        # terhelve a cTrader API-t (és minden alkalommal új tickre várva).
+        self.subscribed_symbol_ids: set = set()
 
         logger.info("🚀 MCP Server inicializálva")
 
@@ -148,6 +153,8 @@ class CTraderMCPServer:
                 pass
         self.connected = False
         self.authenticated = False
+        # Új kapcsolaton a korábbi feliratkozások nem élnek tovább.
+        self.subscribed_symbol_ids.clear()
 
     async def _app_auth(self):
         """Application authentication (payloadType 2100)"""
@@ -339,25 +346,30 @@ class CTraderMCPServer:
                 raise ValueError(f"Szimbólum nem található: {symbol}")
 
             # Spot subscription (a válasz csak a feliratkozást nyugtázza, az árat
-            # egy külön, aszinkron spot event tartalmazza)
-            response = await self._send_request(
-                self.PROTO_OA_SUBSCRIBE_SPOTS_REQ,
-                {
-                    'ctidTraderAccountId': self.account_id,
-                    'symbolId': [symbol_id]
-                }
-            )
+            # egy külön, aszinkron spot event tartalmazza). Csak akkor
+            # küldjük el, ha ezen a kapcsolaton még nem iratkoztunk fel erre a
+            # symbol_id-ra - különben minden hívás (pl. minden dashboard poll)
+            # újra feliratkozna, feleslegesen terhelve a cTrader API-t.
+            if symbol_id not in self.subscribed_symbol_ids:
+                response = await self._send_request(
+                    self.PROTO_OA_SUBSCRIBE_SPOTS_REQ,
+                    {
+                        'ctidTraderAccountId': self.account_id,
+                        'symbolId': [symbol_id]
+                    }
+                )
 
-            already_subscribed = (
-                response['payloadType'] == self.PROTO_OA_ERROR_RES
-                and response.get('payload', {}).get('errorCode') == 'ALREADY_SUBSCRIBED'
-            )
-            if response['payloadType'] != self.PROTO_OA_SUBSCRIBE_SPOTS_RES and not already_subscribed:
-                raise Exception(f"Spot subscription hiba: {response}")
-            # ALREADY_SUBSCRIBED nem hiba: ez a kapcsolat korábban (pl. egy
-            # másik admin kérésben) már feliratkozott ugyanarra a szimbólumra,
-            # az élő tick-ek továbbra is érkeznek/cache-elve vannak - simán
-            # folytatjuk a cache-ből (vagy a következő tick-re várva).
+                already_subscribed = (
+                    response['payloadType'] == self.PROTO_OA_ERROR_RES
+                    and response.get('payload', {}).get('errorCode') == 'ALREADY_SUBSCRIBED'
+                )
+                if response['payloadType'] != self.PROTO_OA_SUBSCRIBE_SPOTS_RES and not already_subscribed:
+                    raise Exception(f"Spot subscription hiba: {response}")
+                # ALREADY_SUBSCRIBED nem hiba: pl. egy korábbi kapcsolat már
+                # feliratkozott, de a saját `subscribed_symbol_ids` állapotunk
+                # (újracsatlakozás miatt) nem tudott róla - egyszerűen
+                # nyugtázzuk feliratkozottnak, folytatjuk a cache-ből.
+                self.subscribed_symbol_ids.add(symbol_id)
 
             # Spot event várakozás (timeout, ha nem jön tick időben). A cache-ben
             # már benne lehet, ha _send_request közben kaptuk meg push-ként.
