@@ -6,6 +6,7 @@ Claude AI alapú automatizált trading bot cTrader-hez
 
 import os
 import json
+import math
 import asyncio
 import logging
 import threading
@@ -523,7 +524,37 @@ class AITradingAdvisor:
         3. Claude AI konzultáció
         4. Trading döntés végrehajtása
         """
-        for symbol in self.symbols:
+        # A szimbólumok közt is tartunk egy kis szünetet (nem csak a teljes
+        # kör végén), hogy a Claude/cTrader API-hívások ne egy szűk,
+        # néhány másodperces sorozatban, hanem szétosztva érkezzenek - ez
+        # ugyanúgy futásidőben módosítható (Beállítások oldal), mint a
+        # ciklusidő. Alapérték 15s, felső korlát 300s (hogy egy hosszú
+        # szünet ne nyújtsa túl a teljes kört a ciklusidőhöz képest).
+        try:
+            symbol_delay = float(os.getenv('TRADING_SYMBOL_DELAY_SECONDS', '15'))
+            if not math.isfinite(symbol_delay):
+                raise ValueError("non-finite symbol delay")
+            symbol_delay = min(max(symbol_delay, 0), 300)
+        except (ValueError, TypeError):
+            symbol_delay = 15
+
+        for i, symbol in enumerate(self.symbols):
+            if not self.running:
+                break
+            if i > 0 and symbol_delay > 0:
+                # Apró darabokban várunk (nem egy egyben, akár 300s-es
+                # sleep-pel), hogy a Stop gomb/leállítás ne akadjon el
+                # legfeljebb symbol_delay másodpercre - lásd a ciklusidő
+                # végi várakozásnál alkalmazott ugyanilyen mintát.
+                elapsed = 0.0
+                while elapsed < symbol_delay:
+                    if not self.running:
+                        break
+                    step = min(5, symbol_delay - elapsed)
+                    await asyncio.sleep(step)
+                    elapsed += step
+                if not self.running:
+                    break
             await self._process_symbol(symbol)
 
     async def _process_symbol(self, symbol: str):

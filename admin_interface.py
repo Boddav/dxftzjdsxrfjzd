@@ -599,6 +599,7 @@ def api_config():
             'max_positions': os.getenv('MAX_OPEN_POSITIONS', '3'),
             'risk_per_trade': os.getenv('MAX_RISK_PER_TRADE', '0.02'),
             'cycle_interval': os.getenv('TRADING_CYCLE_SECONDS', '60'),
+            'symbol_delay': os.getenv('TRADING_SYMBOL_DELAY_SECONDS', '15'),
             'available_symbols': AVAILABLE_SYMBOLS,
             'trading_symbols': _get_configured_symbols()
         }
@@ -624,6 +625,7 @@ def api_config():
                 'max_positions':         'MAX_OPEN_POSITIONS',
                 'risk_per_trade':        'MAX_RISK_PER_TRADE',
                 'cycle_interval':        'TRADING_CYCLE_SECONDS',
+                'symbol_delay':          'TRADING_SYMBOL_DELAY_SECONDS',
             }
             for form_key, env_key in field_map.items():
                 raw_val = data.get(form_key, '')
@@ -652,6 +654,13 @@ def api_config():
                                 return jsonify({'success': False, 'message': 'A ciklusidő 30 és 3600 másodperc között lehet.'}), 400
                         except ValueError:
                             return jsonify({'success': False, 'message': 'Érvénytelen ciklusidő érték.'}), 400
+                    if env_key == 'TRADING_SYMBOL_DELAY_SECONDS':
+                        try:
+                            parsed = float(val)
+                            if not math.isfinite(parsed) or parsed < 0 or parsed > 300:
+                                return jsonify({'success': False, 'message': 'A szimbólumok közti szünet 0 és 300 másodperc között lehet.'}), 400
+                        except ValueError:
+                            return jsonify({'success': False, 'message': 'Érvénytelen szünet érték.'}), 400
                     saved[env_key] = val
                     os.environ[env_key] = val  # azonnal érvényes a futó processben
 

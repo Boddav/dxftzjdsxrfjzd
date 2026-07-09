@@ -67,6 +67,12 @@
             </div>
 
             <div class="form-group">
+                <label for="symbolDelay">Szünet szimbólumok között (másodperc)</label>
+                <input type="number" id="symbolDelay" name="symbolDelay" class="form-control" min="0" max="300" step="1" value="15">
+                <small>Egy körön belül ennyit vár a bot az egyes szimbólumok feldolgozása között, hogy a Claude/cTrader API-hívások ne egy szűk sorozatban érkezzenek. 0-300 mp.</small>
+            </div>
+
+            <div class="form-group">
                 <label>Kereskedett Szimbólumok</label>
                 <input type="text" id="symbolSearch" class="form-control" placeholder="Keresés (pl. EUR, XAU, BTC)..." oninput="filterSymbols()">
                 <div id="symbolsListInfo" class="message" style="display:none;"></div>
