@@ -137,6 +137,16 @@ class CTraderMCPServer:
             self.authenticated = False
             raise
 
+    async def close(self):
+        """WebSocket kapcsolat lezárása (kötelező minden kérés után, erőforrás-szivárgás elkerülésére)"""
+        if self.ws:
+            try:
+                await self.ws.close()
+            except Exception:
+                pass
+        self.connected = False
+        self.authenticated = False
+
     async def _app_auth(self):
         """Application authentication (payloadType 2100)"""
         msg = {
@@ -345,14 +355,17 @@ class CTraderMCPServer:
 
             for pos in positions_data:
                 trade_data = pos.get('tradeData', {})
+                trade_side = trade_data.get('tradeSide')
                 positions.append({
                     'position_id': pos.get('positionId'),
                     'symbol_id': trade_data.get('symbolId'),
                     'volume': trade_data.get('volume'),
-                    'side': 'BUY' if trade_data.get('tradeSide') == 'BUY' else 'SELL',
-                    'entry_price': pos.get('price', 0) / 100000,
-                    'current_price': pos.get('price', 0) / 100000,
-                    'profit': pos.get('moneyDigits', 0) / 100,
+                    'side': 'BUY' if trade_side in ('BUY', 1) else 'SELL',
+                    'entry_price': pos.get('price', 0),
+                    'current_price': pos.get('price', 0),
+                    'swap': pos.get('swap', 0) / 100,
+                    'commission': pos.get('commission', 0) / 100,
+                    'profit': 0,  # a nyitott pozíció valós P&L-jéhez élő árfolyam kell (get_market_data)
                     'timestamp': datetime.fromtimestamp(
                         trade_data.get('openTimestamp', 0) / 1000
                     ).isoformat() if trade_data.get('openTimestamp') else None
@@ -369,17 +382,17 @@ class CTraderMCPServer:
         self,
         symbol: str,
         side: str,
-        volume: int,
+        lots: float = 0.01,
         stop_loss: Optional[float] = None,
         take_profit: Optional[float] = None
     ) -> Dict[str, Any]:
         """
-        Piaci megbízás leadása
+        Piaci megbízás leadása (valós leküldés a cTrader szerverre)
 
         Args:
             symbol: Trading szimbólum (pl. XAUUSD)
             side: 'BUY' vagy 'SELL'
-            volume: Volumen mikroegységben (10000 = 0.01 lot)
+            lots: Volumen lotban (0.01 = mikro lot, minimum általában 0.01)
             stop_loss: Stop loss ár (opcionális)
             take_profit: Take profit ár (opcionális)
 
@@ -390,10 +403,19 @@ class CTraderMCPServer:
             if not self.authenticated:
                 await self.connect()
 
+            if self.is_live:
+                raise PermissionError(
+                    "Élő (live) számlára automatikus megbízás küldése le van tiltva biztonsági okból. "
+                    "Csak demo számlán engedélyezett."
+                )
+
             # Symbol ID
             symbol_id = await self.get_symbol_id(symbol)
             if not symbol_id:
                 raise ValueError(f"Szimbólum nem található: {symbol}")
+
+            # cTrader API: volume = lot * 10,000,000 (centiunit)
+            volume = int(round(lots * 10_000_000))
 
             # Order payload
             order_payload = {
@@ -401,7 +423,8 @@ class CTraderMCPServer:
                 'symbolId': symbol_id,
                 'orderType': 'MARKET',
                 'tradeSide': side.upper(),
-                'volume': volume
+                'volume': volume,
+                'timeInForce': 'IMMEDIATE_OR_CANCEL'
             }
 
             if stop_loss:
@@ -414,22 +437,23 @@ class CTraderMCPServer:
                 order_payload
             )
 
-            if response['payloadType'] == self.PROTO_OA_EXECUTION_EVENT:
-                exec_payload = response['payload']
+            payload = response.get('payload', {})
+
+            if response['payloadType'] == self.PROTO_OA_NEW_ORDER_REQ and 'order' in payload:
                 result = {
                     'success': True,
-                    'order_id': exec_payload.get('orderId'),
-                    'position_id': exec_payload.get('positionId'),
+                    'order_id': payload.get('order', {}).get('orderId'),
+                    'position_id': payload.get('position', {}).get('positionId'),
                     'symbol': symbol,
                     'side': side,
-                    'volume': volume,
+                    'volume': lots,
                     'timestamp': datetime.now().isoformat()
                 }
 
-                logger.info(f"✅ Megbízás: {symbol} {side} {volume/100000:.2f} lot")
+                logger.info(f"✅ Megbízás végrehajtva: {symbol} {side} {lots:.2f} lot (pozíció: {result['position_id']})")
                 return result
             else:
-                raise Exception(f"Execution hiba: {response}")
+                raise Exception(f"Execution hiba: {payload.get('description', response)}")
 
         except Exception as e:
             logger.error(f"❌ Place order hiba: {e}")

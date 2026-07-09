@@ -124,47 +124,88 @@ def api_stop_bot():
         return jsonify({'success': False, 'message': f'Hiba: {str(e)}'})
 
 
+def _run_async(coro):
+    """Segédfüggvény async coroutine futtatásához szinkron Flask route-ban"""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
+async def _fetch_real_positions():
+    server = CTraderMCPServer()
+    try:
+        await server.connect()
+        await server.get_symbols_list()  # symbolId -> symbolName cache feltöltése
+        raw_positions = await server.get_positions()
+
+        id_to_name = {s.get('symbolId'): name for name, s in server.symbols_cache.items()}
+        positions = []
+        for p in raw_positions:
+            symbol_name = id_to_name.get(p.get('symbol_id'), f"ID:{p.get('symbol_id')}")
+            entry_price = p.get('entry_price') or 0
+            lots = round((p.get('volume') or 0) / 10_000_000, 2)
+
+            positions.append({
+                'id': p.get('position_id'),
+                'symbol': symbol_name,
+                'type': p.get('side'),
+                'volume': lots,
+                'openPrice': entry_price,
+                'currentPrice': entry_price,
+                'pnl': round(-(p.get('swap') or 0) + -(p.get('commission') or 0), 2),
+                'openTime': p.get('timestamp')
+            })
+        return positions
+    finally:
+        await server.close()
+
+
 @app.route('/api/positions')
 def api_positions():
-    """Aktuális pozíciók lekérése"""
+    """Aktuális pozíciók lekérése a valós cTrader demo számláról"""
     try:
-        return jsonify({'success': True, 'positions': bot_status.get('positions', [])})
+        if not os.path.exists('credentials.json'):
+            return jsonify({'success': False, 'message': 'Nincs cTrader azonosítás (lásd Azonosítás gomb)'})
+        positions = _run_async(_fetch_real_positions())
+        return jsonify({'success': True, 'positions': positions})
     except Exception as e:
+        logger.error(f"Pozíciók lekérési hiba: {e}")
         return jsonify({'success': False, 'message': str(e)})
 
 
 @app.route('/api/test-position', methods=['POST'])
 def api_test_position():
-    """Teszt pozíció hozzáadása a dashboardhoz"""
-    import random
-    symbols = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY']
-    symbol = random.choice(symbols)
-    side = random.choice(['BUY', 'SELL'])
-    open_price = round(random.uniform(1800, 2050) if symbol == 'XAUUSD' else random.uniform(1.05, 1.15), 5)
-    current_price = round(open_price + random.uniform(-5, 5) if symbol == 'XAUUSD' else open_price + random.uniform(-0.005, 0.005), 5)
-    pnl = round((current_price - open_price) * (1 if side == 'BUY' else -1) * 100, 2)
+    """Valós teszt megbízás küldése a cTrader demo számlára"""
+    try:
+        if not os.path.exists('credentials.json'):
+            return jsonify({'success': False, 'message': 'Előbb végezd el az Azonosítást (OAuth)'})
 
-    pos = {
-        'id': random.randint(10000, 99999),
-        'symbol': symbol,
-        'type': side,
-        'volume': round(random.uniform(0.01, 0.1), 2),
-        'openPrice': open_price,
-        'currentPrice': current_price,
-        'pnl': pnl,
-        'openTime': datetime.now().isoformat()
-    }
-    bot_status['positions'].append(pos)
-    bot_status['last_update'] = datetime.now().isoformat()
-    logger.info(f"Teszt pozíció hozzáadva: {symbol} {side} @ {open_price}")
-    return jsonify({'success': True, 'position': pos})
+        data = request.json or {}
+        symbol = data.get('symbol', 'EURUSD')
+        side = data.get('side', 'BUY')
+        lots = float(data.get('lots', 0.01))
 
+        async def _place():
+            server = CTraderMCPServer()
+            try:
+                await server.connect()
+                return await server.place_order(symbol=symbol, side=side, lots=lots)
+            finally:
+                await server.close()
 
-@app.route('/api/clear-positions', methods=['POST'])
-def api_clear_positions():
-    """Összes pozíció törlése"""
-    bot_status['positions'] = []
-    return jsonify({'success': True})
+        result = _run_async(_place())
+
+        if result.get('success'):
+            logger.info(f"Teszt megbízás elküldve a demo számlára: {symbol} {side} {lots} lot")
+            return jsonify({'success': True, 'result': result})
+        else:
+            return jsonify({'success': False, 'message': result.get('error', 'Ismeretlen hiba')})
+
+    except Exception as e:
+        logger.error(f"Teszt megbízás hiba: {e}")
+        return jsonify({'success': False, 'message': str(e)})
 
 
 @app.route('/api/history')

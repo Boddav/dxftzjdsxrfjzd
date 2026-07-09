@@ -1,0 +1,1 @@
+- [cTrader Open API JSON gateway quirks](ctrader-json-gateway.md) — undocumented protocol details for wss://demo.ctraderapi.com:5036 JSON (non-protobuf) gateway.

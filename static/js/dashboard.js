@@ -174,20 +174,25 @@ function showNotification(message, type) {
 }
 
 async function addTestPosition() {
+    if (!confirm('Ez egy VALÓS megbízást küld a cTrader demo számládra (EURUSD BUY 0.01 lot). Folytatod?')) {
+        return;
+    }
     try {
-        const response = await fetch('/api/test-position', { method: 'POST' });
+        const response = await fetch('/api/test-position', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ symbol: 'EURUSD', side: 'BUY', lots: 0.01 })
+        });
         const data = await response.json();
         if (data.success) {
+            showNotification('Teszt megbízás elküldve a demo számlára', 'success');
             loadPositions();
             updateStatus();
+        } else {
+            showNotification(data.message, 'error');
         }
-    } catch (error) { console.error(error); }
-}
-
-async function clearPositions() {
-    try {
-        await fetch('/api/clear-positions', { method: 'POST' });
-        loadPositions();
-        updateStatus();
-    } catch (error) { console.error(error); }
+    } catch (error) {
+        showNotification('Hiba a teszt megbízás küldésekor', 'error');
+        console.error(error);
+    }
 }
