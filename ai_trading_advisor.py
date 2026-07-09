@@ -415,7 +415,6 @@ You are an expert trading advisor analyzing {symbol}.
 
 **Account Info:**
 - Balance: ${account_info.get('balance', 0):.2f}
-- Equity: ${account_info.get('equity', 0):.2f}
 
 **Trading Rules:**
 - Maximum Risk per Trade: 2%

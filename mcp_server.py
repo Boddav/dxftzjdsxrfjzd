@@ -633,12 +633,19 @@ class CTraderMCPServer:
             if response['payloadType'] == self.PROTO_OA_TRADER_RES:
                 trader = response['payload'].get('trader', {})
 
+                # ProtoOATrader mezői: 'balance' + 'moneyDigits' (a balance skálázási
+                # faktora, tizedesjegyek száma - NEM az equity/margin számításának
+                # bemenete, ahogy korábban feltételeztük). marginUsed/freeMargin
+                # mezők nem léteznek a ProtoOATrader-ben, a valós szabad fedezet
+                # a nyitott pozíciók (get_positions) alapján számítható, itt nem
+                # áll rendelkezésre közvetlenül.
+                money_digits = trader.get('moneyDigits', 2)
+                scale = 10 ** money_digits
+                balance = trader.get('balance', 0) / scale
+
                 account_info = {
                     'account_id': self.account_id,
-                    'balance': trader.get('balance', 0) / 100,
-                    'equity': (trader.get('balance', 0) + trader.get('moneyDigits', 0)) / 100,
-                    'margin_used': trader.get('marginUsed', 0) / 100,
-                    'free_margin': trader.get('freeMargin', 0) / 100,
+                    'balance': balance,
                     'currency': 'USD',
                     'timestamp': datetime.now().isoformat()
                 }
@@ -652,10 +659,6 @@ class CTraderMCPServer:
             logger.error(f"❌ Account info hiba: {e}")
             return {}
 
-    async def close(self):
-        """Kapcsolat bontása"""
-        if self.ws:
-            await self.ws.close()
             self.connected = False
             self.authenticated = False
             logger.info("👋 MCP Server leállítva")
@@ -743,7 +746,7 @@ MCP_TOOLS = [
     },
     {
         "name": "get_account_info",
-        "description": "Get trading account information (balance, equity, margin)",
+        "description": "Get trading account information (balance) - equity/margin are not exposed by the ProtoOATrader message",
         "input_schema": {
             "type": "object",
             "properties": {}
