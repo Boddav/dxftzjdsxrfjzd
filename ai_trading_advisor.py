@@ -487,11 +487,11 @@ Provide ONLY the JSON, no other text.
                 stop_loss=stop_loss
             )
 
-            # Megbízás leadása
+            # Megbízás leadása (volume mikroegységben -> lot konverzió)
             order_result = await self.mcp_server.place_order(
                 symbol=symbol,
                 side=action,
-                volume=volume,
+                lots=volume / 100000,
                 stop_loss=stop_loss,
                 take_profit=take_profit
             )
