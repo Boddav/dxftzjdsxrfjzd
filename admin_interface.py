@@ -124,17 +124,59 @@ def index():
     return render_template('dashboard.html', status=bot_status)
 
 
+def _get_today_trade_stats():
+    """A trade_history.json alapján a MAI (szerver lokális dátum szerinti)
+    nyitott kereskedések száma és a mai napon realizált (zárt) P&L összege.
+
+    Megjegyzés: a 'pnl' mező a trade_history bejegyzésekben csak zárási
+    eseményeknél van kitöltve, és a zárás-kérés pillanata előtti unrealized
+    P&L-ből származik (lásd _record_trade_history hívási helyek
+    kommentjeit ai_trading_advisor.py-ban) - kis csúszástól eltekintve jó
+    közelítés, de nem 100%-ban a bróker által realizált végleges összeg."""
+    trades_today = 0
+    pnl_today = 0.0
+    today = datetime.now().date()
+    try:
+        if os.path.exists('trade_history.json'):
+            with open('trade_history.json', 'r') as f:
+                history = json.load(f)
+            for entry in history:
+                ts = entry.get('timestamp')
+                if not ts:
+                    continue
+                try:
+                    entry_date = datetime.fromisoformat(ts).date()
+                except ValueError:
+                    continue
+                if entry_date != today:
+                    continue
+                # A siker-státuszok (lásd mcp_server.py EXECUTION_STATUS_LABELS /
+                # _record_trade_history hívási helyek): 'accepted', 'filled',
+                # 'partial_fill' mind tényleges (ténylegesen leadott/nyitott)
+                # kereskedést jelent - a "AI által zárva" és "elutasítva: ..."
+                # státuszokat NEM számoljuk új kereskedésként.
+                if entry.get('action') in ('accepted', 'filled', 'partial_fill'):
+                    trades_today += 1
+                pnl = entry.get('pnl')
+                if pnl is not None:
+                    pnl_today += pnl
+    except (OSError, json.JSONDecodeError) as e:
+        logger.error(f"Mai kereskedési statisztika számítási hiba: {e}")
+    return trades_today, round(pnl_today, 2)
+
+
 @app.route('/api/status')
 def api_status():
     """
     Bot státusz API endpoint.
 
-    A bot_status dict-ben tárolt 'positions'/'pnl_today' sosem frissül
-    (csak indításkor íródik, üresen/0-ra) - ezért a felső "Aktív Pozíciók"
-    és "Mai P&L" kártyák mindig 0-t mutattak, míg az alsó táblázat (amit az
-    /api/positions külön, valós lekéréssel tölt fel) helyesen jelent meg.
-    Itt is a valós, élő pozíciókat kérjük le, és abból számoljuk a
-    darabszámot és a nyitott pozíciók összesített (nem realizált) P&L-jét.
+    A bot_status dict-ben tárolt 'positions'/'pnl_today'/'trades_today'
+    sosem frissült (csak indításkor íródott, üresen/0-ra) - ezért a felső
+    "Aktív Pozíciók" és "Mai P&L" kártyák mindig 0-t mutattak, míg az alsó
+    táblázat (amit az /api/positions külön, valós lekéréssel tölt fel)
+    helyesen jelent meg. Itt a valós, élő pozíciókból számoljuk a nyitott
+    pozíciók darabszámát, és a trade_history.json-ból a MAI, tényleges
+    (nyitott/zárt) kereskedésekre vonatkozó számokat.
     """
     status = dict(bot_status)
     try:
@@ -142,16 +184,15 @@ def api_status():
             positions = _get_real_positions_cached()
             status['positions'] = positions
             status['open_positions_count'] = len(positions)
-            # Ez a nyitott pozíciók össz. NEM realizált P&L-je (nem a nap
-            # folyamán lezárt/realizált eredmény) - a mezőnevet a frontend
-            # kompatibilitása miatt tartjuk 'pnl_today'-nak, de valójában
-            # "nyitott pozíciók aktuális P&L-je".
-            status['pnl_today'] = round(sum(p.get('pnl') or 0 for p in positions), 2)
         else:
             status['open_positions_count'] = len(status.get('positions') or [])
     except Exception as e:
         logger.error(f"Státusz - pozíciók lekérési hiba: {e}")
         status['open_positions_count'] = len(status.get('positions') or [])
+
+    trades_today, pnl_today = _get_today_trade_stats()
+    status['trades_today'] = trades_today
+    status['pnl_today'] = pnl_today
     return jsonify(status)
 
 

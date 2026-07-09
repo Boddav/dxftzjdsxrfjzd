@@ -5,3 +5,5 @@
 - [Risk-based position sizing must be margin-aware](position-sizing-margin.md) — risk % alone isn't enough; cap lot size by available margin/leverage too, or high-notional symbols get rejected.
 - [MCP connection self-healing and dashboard polling load](mcp-reconnect-and-polling.md) — a keepalive drop doesn't reset the authenticated flag; check ws state too, reconnect immediately, and don't resubscribe spots every poll.
 - [AI-driven open-position management](ai-position-management.md) — Claude also manages already-open positions (HOLD/CLOSE/MOVE_SL) in the same API call as entry; safety rails for SL validation and ordering.
+- [Claude model choice for high-frequency loops](claude-model-cost.md) — Opus-tier models in a per-symbol trading loop burn API credit fast; default to a cheaper tier unless quality demands otherwise.
+- [Multi-position AI responses can be arrays](multi-position-ai-response-shape.md) — when an AI prompt asks for a per-position decision and there are 2+ open positions on one symbol, the model may return a JSON array instead of one object; every consumer (execution + logging) must handle both shapes.

@@ -15,6 +15,7 @@ import numpy as np
 from anthropic import Anthropic
 from mcp_server import CTraderMCPServer, MCP_TOOLS
 from news_calendar import NewsCalendar
+from ml_predictor import MLPredictor
 
 # Logging konfiguráció
 logging.basicConfig(
@@ -382,6 +383,7 @@ class AITradingAdvisor:
         self._trade_history_lock = threading.Lock()
         self._ai_decisions_lock = threading.Lock()
         self.news_calendar = NewsCalendar()
+        self.ml_predictor = MLPredictor()
 
         logger.info(f"🤖 AI Trading Advisor inicializálva - Szimbólumok: {', '.join(self.symbols)}")
 
@@ -526,6 +528,13 @@ class AITradingAdvisor:
                 logger.warning(f"⚠️ [{symbol}] Gazdasági naptár lekérdezési hiba: {e}")
                 news_events = []
 
+            # 2c. XGBoost kiegészítő szignál - rövid távú irány-előrejelzés,
+            # a friss gyertyákból tanult, memóriában tartott modellből (lásd
+            # ml_predictor.py). Ez SOHA nem önálló döntés, csak egy további
+            # jelzés a Claude promptban - a get_ai_decision() explicit
+            # figyelmezteti erre a modellt (kis mintás, kísérleti jellegű).
+            ml_signal = self.ml_predictor.predict(symbol, candles)
+
             # 2b. Az ehhez a szimbólumhoz tartozó már nyitott pozíció(k)
             # összegyűjtése, valós (szerver-oldali) unrealized P&L-lel - ez
             # kell ahhoz, hogy az AI ne csak új pozíció nyitásáról döntsön,
@@ -557,7 +566,8 @@ class AITradingAdvisor:
                 account_info=account_info,
                 own_positions=own_positions,
                 volatility=volatility,
-                news_events=news_events
+                news_events=news_events,
+                ml_signal=ml_signal
             )
 
             # 4. Trading döntés végrehajtása
@@ -719,7 +729,8 @@ class AITradingAdvisor:
         account_info: Dict,
         own_positions: Optional[List[Dict]] = None,
         volatility: Optional[Dict] = None,
-        news_events: Optional[List[Dict]] = None
+        news_events: Optional[List[Dict]] = None,
+        ml_signal: Optional[Dict] = None
     ) -> Dict[str, Any]:
         """
         Claude AI döntéskérés
@@ -742,6 +753,9 @@ class AITradingAdvisor:
             news_events: NewsCalendar.get_relevant_events() eredménye - a
                 szimbólum devizáihoz tartozó, közel-múltbeli/közelgő
                 közepes/magas hatású gazdasági események.
+            ml_signal: MLPredictor.predict() eredménye - egy XGBoost modell
+                kis mintás, kísérleti irány-előrejelzése. Csak kiegészítő
+                szignálként adjuk a promptba, sosem parancsként.
 
         Returns:
             Dict: Trading döntés
@@ -780,6 +794,20 @@ class AITradingAdvisor:
             else:
                 news_block = ""
 
+            if ml_signal:
+                ml_block = (
+                    f"\n**🤖 ML Supplemental Signal (XGBoost, experimental/low-sample):** "
+                    f"{ml_signal['signal']} (P(up) over next {ml_signal['lookahead_candles']} "
+                    f"M5 candles = {ml_signal['probability_up']:.2f}, trained on only "
+                    f"{ml_signal['trained_samples']} in-memory samples for this symbol). "
+                    "This is a weak, self-supervised, short-horizon statistical signal - "
+                    "treat it as a minor tie-breaker alongside the technical analysis, NOT "
+                    "as a standalone reason to trade. Ignore it if it conflicts with the "
+                    "trend/RSI/news picture above.\n"
+                )
+            else:
+                ml_block = ""
+
             if own_positions:
                 positions_block_lines = []
                 for p in own_positions:
@@ -806,7 +834,7 @@ class AITradingAdvisor:
         "position_id": the Position ID from the list above this decision applies to,
         "new_stop_loss": new stop loss price (ONLY required if action is MOVE_SL, e.g. to move to break-even or trail behind price),
         "reasoning": "why you chose this action for the existing position"
-    }"""
+    } (if there are MULTIPLE open positions listed above, make "position_management" a JSON ARRAY of one such object per position instead of a single object)"""
             else:
                 own_positions_block = "**Your Open Position(s) on " + symbol + ":** none"
                 position_management_schema = ""
@@ -833,7 +861,7 @@ You are an expert trading advisor analyzing {symbol}.
 
 **Current Positions:**
 - Open Positions (all symbols): {len(positions)}
-{volatility_block}{news_block}
+{volatility_block}{news_block}{ml_block}
 {own_positions_block}
 
 **Account Info:**
@@ -890,10 +918,19 @@ Provide ONLY the JSON, no other text.
             logger.info(f"💭 Indoklás: {decision.get('reasoning', '')}")
             pos_mgmt = decision.get('position_management')
             if pos_mgmt:
-                logger.info(
-                    f"🛠️ [{symbol}] Pozíció-menedzsment döntés: {pos_mgmt.get('action')} "
-                    f"(id={pos_mgmt.get('position_id')}) - {pos_mgmt.get('reasoning', '')}"
-                )
+                # Több nyitott pozíció esetén Claude tömböt is visszaadhat
+                # (lásd position_management_schema) - a logolásnak ezt is
+                # kezelnie kell, különben egy .get() hívás listán elszállna,
+                # és a teljes döntés HOLD-ra esne vissza (lásd korábbi hiba).
+                pos_mgmt_entries = pos_mgmt if isinstance(pos_mgmt, list) else [pos_mgmt]
+                for entry in pos_mgmt_entries:
+                    if isinstance(entry, dict):
+                        logger.info(
+                            f"🛠️ [{symbol}] Pozíció-menedzsment döntés: {entry.get('action')} "
+                            f"(id={entry.get('position_id')}) - {entry.get('reasoning', '')}"
+                        )
+                    else:
+                        logger.warning(f"⚠️ [{symbol}] Érvénytelen position_management bejegyzés a logban: {entry!r}")
 
             return decision
 
@@ -912,7 +949,7 @@ Provide ONLY the JSON, no other text.
         self,
         symbol: str,
         own_positions: List[Dict],
-        position_management: Optional[Dict],
+        position_management: Optional[Any],
         market_data: Dict
     ):
         """
@@ -923,10 +960,31 @@ Provide ONLY the JSON, no other text.
         Ha az AI nem adott position_management-et (pl. hibás válasz, vagy
         a régi promptformátum), HOLD-nak tekintjük - nem csinálunk semmit,
         a pozíció változatlanul fut tovább a saját SL/TP-jével.
+
+        Több nyitott pozíció esetén az AI-t egy JSON TÖMB visszaadására
+        kérjük (egy elem/pozíció) - de védekezésből egyetlen objektumot is
+        elfogadunk (akkor is, ha több pozíció van), mert a modell néha csak
+        egyet ad vissza; ilyenkor csak az az egy pozíció kap kezelést.
         """
         if not position_management:
             return
 
+        entries = position_management if isinstance(position_management, list) else [position_management]
+        for entry in entries:
+            if isinstance(entry, dict):
+                await self._apply_position_management(symbol, own_positions, entry, market_data)
+            else:
+                logger.warning(f"⚠️ [{symbol}] Érvénytelen position_management bejegyzés (nem dict): {entry!r}")
+
+    async def _apply_position_management(
+        self,
+        symbol: str,
+        own_positions: List[Dict],
+        position_management: Dict,
+        market_data: Dict
+    ):
+        """Egyetlen position_management bejegyzés végrehajtása - lásd
+        _manage_open_positions, ami egy vagy több ilyen bejegyzést hívhat."""
         action = (position_management.get('action') or 'HOLD').upper()
         target_id = position_management.get('position_id')
 
