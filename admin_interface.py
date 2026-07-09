@@ -16,7 +16,7 @@ import logging
 import requests as http_requests
 
 # Saját modulok
-from ai_trading_advisor import AITradingAdvisor
+from ai_trading_advisor import AITradingAdvisor, RiskManager
 from mcp_server import CTraderMCPServer
 from mcp_connection_manager import run_shared
 
@@ -260,20 +260,60 @@ async def _fetch_real_positions(server):
     raw_positions = await server.get_positions()
 
     id_to_name = {s.get('symbolId'): name for name, s in server.symbols_cache.items()}
+
+    # Élő ár lekérése minden nyitott pozíció szimbólumához, hogy a currentPrice
+    # és a pnl valós, friss árfolyamon alapuljon - korábban currentPrice mindig
+    # az openPrice-cal volt egyenlő, és a pnl csak a swap+commission-t
+    # tartalmazta (az árfolyam-elmozdulást soha), ezért a felület sosem
+    # mutatott érdemi P&L-változást.
+    unique_symbols = {
+        id_to_name.get(p.get('symbol_id')) for p in raw_positions
+        if id_to_name.get(p.get('symbol_id'))
+    }
+    market_data_by_symbol = {}
+    for sym in unique_symbols:
+        try:
+            market_data_by_symbol[sym] = await server.get_market_data(sym)
+        except Exception as e:
+            logger.warning(f"⚠️ Élő árfolyam lekérési hiba ({sym}): {e}")
+
     positions = []
     for p in raw_positions:
-        symbol_name = id_to_name.get(p.get('symbol_id'), f"ID:{p.get('symbol_id')}")
+        symbol_id = p.get('symbol_id')
+        symbol_name = id_to_name.get(symbol_id, f"ID:{symbol_id}")
         entry_price = p.get('entry_price') or 0
         lots = round((p.get('volume') or 0) / 10_000_000, 2)
+        side = p.get('side')
+        swap = p.get('swap') or 0
+        commission = p.get('commission') or 0
+
+        market_data = market_data_by_symbol.get(symbol_name) or {}
+        bid = market_data.get('bid')
+        ask = market_data.get('ask')
+
+        if bid and ask:
+            # Egy nyitott pozíciót a másik irányba lehet zárni: a BUY-t a
+            # bid-en, a SELL-t az ask-on - ez adja a valós, aktuálisan
+            # realizálható árat.
+            current_price = bid if side == 'BUY' else ask
+            contract_size = RiskManager._contract_size(symbol_name)
+            price_diff = (current_price - entry_price) if side == 'BUY' else (entry_price - current_price)
+            price_pnl = price_diff * contract_size * lots
+            pnl = round(price_pnl - swap - commission, 2)
+        else:
+            # Nincs élő ár (pl. subscription timeout) - visszaesünk a nyitási
+            # árra, de ezt jelezzük, hogy a felhasználó ne tekintse frissnek.
+            current_price = entry_price
+            pnl = round(-swap - commission, 2)
 
         positions.append({
             'id': p.get('position_id'),
             'symbol': symbol_name,
-            'type': p.get('side'),
+            'type': side,
             'volume': lots,
             'openPrice': entry_price,
-            'currentPrice': entry_price,
-            'pnl': round(-(p.get('swap') or 0) + -(p.get('commission') or 0), 2),
+            'currentPrice': current_price,
+            'pnl': pnl,
             'openTime': p.get('timestamp')
         })
     return positions

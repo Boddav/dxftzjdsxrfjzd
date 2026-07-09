@@ -50,32 +50,38 @@ def _ensure_loop_running():
         logger.info("🧵 Megosztott MCP event loop szál elindítva")
 
 
-async def _get_server_locked() -> CTraderMCPServer:
-    """A megosztott loopon belül futva biztosítja a kapcsolódott szervert."""
-    global _server, _server_lock
+def _get_lock() -> asyncio.Lock:
+    global _server_lock
     if _server_lock is None:
         _server_lock = asyncio.Lock()
+    return _server_lock
 
-    async with _server_lock:
-        if _server is None:
-            _server = CTraderMCPServer()
 
-        if not _server.connected or not _server.authenticated:
+async def _ensure_connected_locked() -> CTraderMCPServer:
+    """
+    Csak a megosztott lock birtokában hívható (lásd _run_with_shared_server).
+    Biztosítja, hogy a szerver csatlakozva/authentikálva legyen.
+    """
+    global _server
+    if _server is None:
+        _server = CTraderMCPServer()
+
+    if not _server.connected or not _server.authenticated:
+        try:
+            await _server.connect()
+        except Exception:
+            # Ha a csatlakozás sikertelen, zárjuk le a (részlegesen) megnyitott
+            # socketet, majd dobjuk el a szervert, hogy legközelebb tiszta
+            # lappal induljon az újrapróbálkozás (ne szivárogjon a kapcsolat).
+            broken = _server
+            _server = None
             try:
-                await _server.connect()
+                await broken.close()
             except Exception:
-                # Ha a csatlakozás sikertelen, zárjuk le a (részlegesen) megnyitott
-                # socketet, majd dobjuk el a szervert, hogy legközelebb tiszta
-                # lappal induljon az újrapróbálkozás (ne szivárogjon a kapcsolat).
-                broken = _server
-                _server = None
-                try:
-                    await broken.close()
-                except Exception:
-                    pass
-                raise
+                pass
+            raise
 
-        return _server
+    return _server
 
 
 async def _invalidate_server():
@@ -115,21 +121,31 @@ async def _run_with_shared_server(func):
     func: async callable, amely egy CTraderMCPServer-t vár paraméterként,
     és a visszatérési értékét adjuk vissza.
 
+    A teljes hívást (connect + func végrehajtása) egyetlen lock alatt
+    futtatjuk - a websockets kliens NEM biztonságos egyidejű send/recv-re
+    több coroutine-ból, ezért ha csak a connect-et zároltuk volna, két
+    egyidejű admin kérés "cannot call recv while another coroutine is
+    already running recv" hibát dobott (ugyanazon a kapcsolaton versenyezve).
+    A megosztott kapcsolat ára, hogy a kérések ezen a szálon sorban futnak,
+    nem párhuzamosan - ez az elfogadott csere a korábbi, kapcsolat-duplikáló
+    viselkedéssel szemben.
+
     Egyszer próbálkozik a meglévő (vagy újonnan létrehozott) megosztott
     kapcsolattal; ha a hiba kapcsolat-/authentikáció-jellegűnek tűnik, egyszer
     megpróbálja friss kapcsolattal is, mielőtt továbbdobja a hibát. Egyéb
     (pl. üzleti logikai) hibákat azonnal továbbdob, nem próbálkozik újra.
     """
-    server = await _get_server_locked()
-    try:
-        return await func(server)
-    except Exception as e:
-        if not _looks_like_connection_error(e):
-            raise
-        logger.warning(f"⚠️ Megosztott MCP kapcsolat hívás sikertelen, újracsatlakozás: {e}")
-        await _invalidate_server()
-        server = await _get_server_locked()
-        return await func(server)
+    async with _get_lock():
+        server = await _ensure_connected_locked()
+        try:
+            return await func(server)
+        except Exception as e:
+            if not _looks_like_connection_error(e):
+                raise
+            logger.warning(f"⚠️ Megosztott MCP kapcsolat hívás sikertelen, újracsatlakozás: {e}")
+            await _invalidate_server()
+            server = await _ensure_connected_locked()
+            return await func(server)
 
 
 def run_shared(func):

@@ -348,8 +348,16 @@ class CTraderMCPServer:
                 }
             )
 
-            if response['payloadType'] != self.PROTO_OA_SUBSCRIBE_SPOTS_RES:
+            already_subscribed = (
+                response['payloadType'] == self.PROTO_OA_ERROR_RES
+                and response.get('payload', {}).get('errorCode') == 'ALREADY_SUBSCRIBED'
+            )
+            if response['payloadType'] != self.PROTO_OA_SUBSCRIBE_SPOTS_RES and not already_subscribed:
                 raise Exception(f"Spot subscription hiba: {response}")
+            # ALREADY_SUBSCRIBED nem hiba: ez a kapcsolat korábban (pl. egy
+            # másik admin kérésben) már feliratkozott ugyanarra a szimbólumra,
+            # az élő tick-ek továbbra is érkeznek/cache-elve vannak - simán
+            # folytatjuk a cache-ből (vagy a következő tick-re várva).
 
             # Spot event várakozás (timeout, ha nem jön tick időben). A cache-ben
             # már benne lehet, ha _send_request közben kaptuk meg push-ként.
