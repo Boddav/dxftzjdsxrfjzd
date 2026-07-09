@@ -10,10 +10,11 @@ import asyncio
 import logging
 import threading
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import numpy as np
 from anthropic import Anthropic
 from mcp_server import CTraderMCPServer, MCP_TOOLS
+from news_calendar import NewsCalendar
 
 # Logging konfiguráció
 logging.basicConfig(
@@ -122,6 +123,61 @@ class TechnicalIndicators:
             'middle': middle,
             'upper': middle + (std_dev * std),
             'lower': middle - (std_dev * std)
+        }
+
+    @staticmethod
+    def detect_volatility_spike(candles: List[Dict], lookback: int = 20, spike_ratio: float = 2.5) -> Dict[str, Any]:
+        """
+        Árfolyam-alapú "lehetséges hír-esemény" észlelés API/kulcs nélkül:
+        az utolsó gyertya valós tartományát (true range) hasonlítja az
+        előző `lookback` gyertya átlagos true range-éhez (ATR-szerű
+        közelítés). Ha a legutóbbi gyertya szokatlanul nagyot mozgott a
+        megelőző átlaghoz képest, az gyakran hír/makroadat által kiváltott
+        hirtelen mozgásra utal, még akkor is, ha nincs bekötve tényleges
+        gazdasági naptár adat.
+
+        Args:
+            candles: OHLC gyertyák időrendben (a legrégebbi elöl, ahogy a
+                get_candles() adja vissza)
+            lookback: Hány megelőző gyertyából számoljunk átlagos tartományt
+            spike_ratio: Az utolsó gyertya tartománya hányszorosa legyen az
+                átlagnak ahhoz, hogy kiugrásnak számítson
+
+        Returns:
+            Dict: {'is_spike': bool, 'last_range': float, 'avg_range': float, 'ratio': float}
+        """
+        # Kell: lookback+1 gyertya a baseline-hoz (mindegyikhez egy megelőző
+        # close) + 1 a legfrissebb, amit ehhez viszonyítunk.
+        if len(candles) < lookback + 3:
+            return {'is_spike': False, 'last_range': 0.0, 'avg_range': 0.0, 'ratio': 0.0}
+
+        def true_range(prev_close: float, candle: Dict) -> float:
+            high = candle.get('high', 0)
+            low = candle.get('low', 0)
+            return max(high - low, abs(high - prev_close), abs(low - prev_close))
+
+        # Az utolsó előtti `lookback` gyertyából számolt átlag a
+        # "normál" volatilitás, ehhez viszonyítjuk a legfrissebb gyertyát -
+        # ha magát a legutolsót is bevonnánk az átlagba, elmosná a
+        # kiugrást, amit épp észlelni akarunk. Minden baseline true range-hez
+        # kell egy megelőző close is, ezért eggyel hosszabb szeletet veszünk
+        # (lookback+1 gyertya), hogy pontosan `lookback` db true range jöjjön
+        # ki - enélkül csak lookback-1 értékből számolt (lefelé torzított)
+        # átlag adódna, ami hamis pozitív kiugrásokat eredményezne.
+        baseline = candles[-(lookback + 2):-1]
+        ranges = []
+        for i in range(1, len(baseline)):
+            ranges.append(true_range(baseline[i - 1]['close'], baseline[i]))
+        avg_range = float(np.mean(ranges)) if ranges else 0.0
+
+        last_range = true_range(candles[-2]['close'], candles[-1])
+        ratio = (last_range / avg_range) if avg_range > 0 else 0.0
+
+        return {
+            'is_spike': ratio >= spike_ratio,
+            'last_range': last_range,
+            'avg_range': avg_range,
+            'ratio': ratio
         }
 
 
@@ -325,6 +381,7 @@ class AITradingAdvisor:
         self.trade_history_file = 'trade_history.json'
         self._trade_history_lock = threading.Lock()
         self._ai_decisions_lock = threading.Lock()
+        self.news_calendar = NewsCalendar()
 
         logger.info(f"🤖 AI Trading Advisor inicializálva - Szimbólumok: {', '.join(self.symbols)}")
 
@@ -442,6 +499,19 @@ class AITradingAdvisor:
             close_prices = [candle['close'] for candle in candles]
             analysis = self.technical_analysis(close_prices)
 
+            # 2a. Hír/nagy-mozgás észlelés - két, egymást kiegészítő forrásból:
+            # (1) árfolyam-alapú volatilitás-kiugrás (nem igényel API-kulcsot,
+            #     mindig működik, de csak UTÓLAG jelzi, hogy már történt valami),
+            # (2) valós gazdasági naptár (ForexFactory, publikus, kulcs
+            #     nélküli feed), ami ELŐRE is jelzi a közelgő, valamint a
+            #     közelmúltban megjelent közepes/magas hatású híreket.
+            volatility = TechnicalIndicators.detect_volatility_spike(candles)
+            try:
+                news_events = await self.news_calendar.get_relevant_events(symbol, datetime.now(timezone.utc))
+            except Exception as e:
+                logger.warning(f"⚠️ [{symbol}] Gazdasági naptár lekérdezési hiba: {e}")
+                news_events = []
+
             # 2b. Az ehhez a szimbólumhoz tartozó már nyitott pozíció(k)
             # összegyűjtése, valós (szerver-oldali) unrealized P&L-lel - ez
             # kell ahhoz, hogy az AI ne csak új pozíció nyitásáról döntsön,
@@ -471,7 +541,9 @@ class AITradingAdvisor:
                 analysis=analysis,
                 positions=positions,
                 account_info=account_info,
-                own_positions=own_positions
+                own_positions=own_positions,
+                volatility=volatility,
+                news_events=news_events
             )
 
             # 4. Trading döntés végrehajtása
@@ -631,7 +703,9 @@ class AITradingAdvisor:
         analysis: Dict,
         positions: List,
         account_info: Dict,
-        own_positions: Optional[List[Dict]] = None
+        own_positions: Optional[List[Dict]] = None,
+        volatility: Optional[Dict] = None,
+        news_events: Optional[List[Dict]] = None
     ) -> Dict[str, Any]:
         """
         Claude AI döntéskérés
@@ -648,12 +722,49 @@ class AITradingAdvisor:
                 módosítás) is megkérdezzük, ugyanabban a hívásban, mint az
                 új-pozíció döntést (nem duplázzuk az amúgy is drága Claude
                 hívások számát).
+            volatility: TechnicalIndicators.detect_volatility_spike() eredménye
+                - jelzi, ha a legutóbbi gyertya szokatlanul nagyot mozgott
+                (lehetséges hír-esemény, akkor is, ha nincs naptár-adat).
+            news_events: NewsCalendar.get_relevant_events() eredménye - a
+                szimbólum devizáihoz tartozó, közel-múltbeli/közelgő
+                közepes/magas hatású gazdasági események.
 
         Returns:
             Dict: Trading döntés
         """
         try:
             own_positions = own_positions or []
+            volatility = volatility or {}
+            news_events = news_events or []
+
+            if volatility.get('is_spike'):
+                volatility_block = (
+                    f"\n**⚠️ Volatility Alert:** The most recent candle's range is "
+                    f"{volatility.get('ratio', 0):.1f}x the recent average - this often "
+                    f"indicates a news/data release just moved the market. Be more cautious: "
+                    f"prefer protecting existing positions and be more selective about new entries.\n"
+                )
+            else:
+                volatility_block = ""
+
+            if news_events:
+                news_lines = []
+                for ev in news_events:
+                    when = f"in {ev['minutes_from_now']} min" if ev['minutes_from_now'] >= 0 else f"{abs(ev['minutes_from_now'])} min ago"
+                    news_lines.append(
+                        f"- [{ev['impact']}] {ev['country']} {ev['title']} ({when}) "
+                        f"forecast={ev.get('forecast') or 'n/a'} previous={ev.get('previous') or 'n/a'}"
+                    )
+                news_block = (
+                    "\n**📰 Economic Calendar (medium/high impact, this symbol's currencies):**\n"
+                    + "\n".join(news_lines)
+                    + "\n\nIf a high-impact event is imminent (within ~30 min), strongly prefer HOLD for "
+                    "new entries (spreads widen and moves become erratic/unpredictable around the release), "
+                    "and consider tightening stops or reducing size on existing positions. If an event just "
+                    "happened, use it to explain any volatility alert above rather than assuming a technical breakout.\n"
+                )
+            else:
+                news_block = ""
 
             if own_positions:
                 positions_block_lines = []
@@ -708,7 +819,7 @@ You are an expert trading advisor analyzing {symbol}.
 
 **Current Positions:**
 - Open Positions (all symbols): {len(positions)}
-
+{volatility_block}{news_block}
 {own_positions_block}
 
 **Account Info:**
