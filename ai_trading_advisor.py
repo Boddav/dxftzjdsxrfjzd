@@ -239,6 +239,8 @@ class AITradingAdvisor:
         self.running = False
         self.symbols = symbols or ["XAUUSD"]
         self.ai_decisions_file = 'ai_decisions.json'
+        self.trade_history_file = 'trade_history.json'
+        self._trade_history_lock = threading.Lock()
         self._ai_decisions_lock = threading.Lock()
 
         logger.info(f"🤖 AI Trading Advisor inicializálva - Szimbólumok: {', '.join(self.symbols)}")
@@ -364,6 +366,46 @@ class AITradingAdvisor:
                 os.replace(tmp_path, self.ai_decisions_file)
             except (OSError, json.JSONDecodeError) as e:
                 logger.error(f"AI döntés mentési hiba: {e}")
+
+    def _record_trade_history(
+        self,
+        symbol: str,
+        action: str,
+        volume_lots: float,
+        entry_price: float,
+        status: str,
+        reasoning: str = '',
+        pnl: Optional[float] = None,
+        max_entries: int = 50
+    ):
+        """Egy ténylegesen leadott (sikeres vagy elutasított) megbízás elmentése
+        a Kereskedési Előzmények panelhez - ez különbözik az ai_decisions.json-tól,
+        ami MINDEN AI döntést listáz (HOLD is), függetlenül attól, hogy lett-e
+        belőle valós megbízás."""
+        entry = {
+            'timestamp': datetime.now().isoformat(),
+            'symbol': symbol,
+            'type': action,
+            'action': status,
+            'volume': volume_lots,
+            'entry_price': entry_price,
+            'pnl': pnl,
+            'reasoning': reasoning,
+        }
+        with self._trade_history_lock:
+            try:
+                history = []
+                if os.path.exists(self.trade_history_file):
+                    with open(self.trade_history_file, 'r') as f:
+                        history = json.load(f)
+                history.append(entry)
+                history = history[-max_entries:]
+                tmp_path = f"{self.trade_history_file}.tmp"
+                with open(tmp_path, 'w') as f:
+                    json.dump(history, f)
+                os.replace(tmp_path, self.trade_history_file)
+            except (OSError, json.JSONDecodeError) as e:
+                logger.error(f"Kereskedési előzmény mentési hiba: {e}")
 
     def technical_analysis(self, close_prices: List[float]) -> Dict[str, Any]:
         """
@@ -574,19 +616,55 @@ Provide ONLY the JSON, no other text.
             )
 
             # Megbízás leadása (volume mikroegységben -> lot konverzió)
-            order_result = await self.mcp_server.place_order(
-                symbol=symbol,
-                side=action,
-                lots=volume / 100000,
-                stop_loss=stop_loss,
-                take_profit=take_profit
-            )
+            # A kockázat-alapú méretezés nem ismeri a brókernél elérhető
+            # tőkeáttételt/fedezetigényt, ezért drága instrumentumoknál
+            # (pl. XAUUSD) NOT_ENOUGH_MONEY hibát okozhat. Ilyenkor a
+            # lotméretet felezve újrapróbálkozunk, amíg a bróker minimuma
+            # alá nem érünk vagy más jellegű hibát nem kapunk.
+            lots = volume / 100000
+            order_result = None
+            for attempt in range(4):
+                order_result = await self.mcp_server.place_order(
+                    symbol=symbol,
+                    side=action,
+                    lots=lots,
+                    stop_loss=stop_loss,
+                    take_profit=take_profit
+                )
+                if order_result.get('success'):
+                    break
+                error_text = str(order_result.get('error', ''))
+                if 'NOT_ENOUGH_MONEY' in error_text and lots > 0.01:
+                    new_lots = round(max(lots / 2, 0.01), 2)
+                    logger.warning(
+                        f"⚠️ [{symbol}] Fedezethiány {lots:.2f} lot mellett, "
+                        f"újrapróbálkozás {new_lots:.2f} lottal"
+                    )
+                    lots = new_lots
+                    continue
+                break
 
             if order_result.get('success'):
-                logger.info(f"✅ [{symbol}] Trade végrehajtva: {action} {volume/100000:.2f} lot @ {entry_price:.2f}")
+                logger.info(f"✅ [{symbol}] Trade végrehajtva: {action} {lots:.2f} lot @ {entry_price:.2f}")
                 logger.info(f"   SL: {stop_loss:.2f}, TP: {take_profit:.2f}")
+                self._record_trade_history(
+                    symbol=symbol,
+                    action=action,
+                    volume_lots=lots,
+                    entry_price=entry_price,
+                    status=order_result.get('status', 'végrehajtva'),
+                    reasoning=decision.get('reasoning', '')
+                )
             else:
                 logger.error(f"❌ [{symbol}] Trade hiba: {order_result.get('error')}")
+                self._record_trade_history(
+                    symbol=symbol,
+                    action=action,
+                    volume_lots=lots,
+                    entry_price=entry_price,
+                    status=f"elutasítva: {order_result.get('error', 'ismeretlen hiba')}",
+                    reasoning=decision.get('reasoning', '')
+                )
 
         except Exception as e:
             logger.error(f"❌ [{symbol}] Trade végrehajtási hiba: {e}")

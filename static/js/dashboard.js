@@ -129,22 +129,47 @@ async function loadHistory() {
 
         const tbody = document.getElementById('historyBody');
 
+        tbody.innerHTML = '';
+
         if (data.success && data.history && data.history.length > 0) {
             const recent = data.history.slice(-10).reverse();
-            tbody.innerHTML = recent.map(trade => `
-                <tr>
-                    <td>${formatTime(trade.timestamp)}</td>
-                    <td>${trade.symbol}</td>
-                    <td>${trade.type}</td>
-                    <td><strong>${trade.action}</strong></td>
-                    <td class="${trade.pnl >= 0 ? 'text-success' : 'text-danger'}">
-                        ${trade.pnl ? formatCurrency(trade.pnl) : '-'}
-                    </td>
-                    <td>${trade.reasoning || '-'}</td>
-                </tr>
-            `).join('');
+            recent.forEach(trade => {
+                const tr = document.createElement('tr');
+
+                const tdTime = document.createElement('td');
+                tdTime.textContent = formatTime(trade.timestamp);
+
+                const tdSymbol = document.createElement('td');
+                tdSymbol.textContent = trade.symbol || '-';
+
+                const tdType = document.createElement('td');
+                tdType.textContent = trade.type || '-';
+
+                const tdAction = document.createElement('td');
+                const strong = document.createElement('strong');
+                strong.textContent = trade.action || '-';
+                tdAction.appendChild(strong);
+
+                const tdPnl = document.createElement('td');
+                tdPnl.className = trade.pnl >= 0 ? 'text-success' : 'text-danger';
+                tdPnl.textContent = trade.pnl != null ? formatCurrency(trade.pnl) : '-';
+
+                const tdReasoning = document.createElement('td');
+                // Az indoklás a Claude AI nyers szöveges kimenete - sose
+                // innerHTML-lel szúrjuk be, mindig textContent-tel.
+                tdReasoning.textContent = trade.reasoning || '-';
+
+                tr.append(tdTime, tdSymbol, tdType, tdAction, tdPnl, tdReasoning);
+                tbody.appendChild(tr);
+            });
         } else {
-            tbody.innerHTML = '<tr><td colspan="6" class="no-data">Nincs előzmény</td></tr>';
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 6;
+            td.className = 'no-data';
+            td.textContent = 'Nincs előzmény';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
         }
     } catch (error) {
         console.error('Előzmények betöltési hiba:', error);
