@@ -275,7 +275,16 @@ class CTraderMCPServer:
 
         except Exception as e:
             logger.error(f"❌ Symbols list hiba: {e}")
-            return []
+            # Fontos: TOVÁBBDOBJUK a hibát, nem nyelhetjük el üres listával -
+            # a hívók (pl. a megosztott admin kapcsolat run_shared/
+            # _run_with_shared_server retry-logikája, vagy a bot saját
+            # kapcsolat-hiba felismerése) csak akkor tudják érzékelni és
+            # újracsatlakoztatni az elszállt kapcsolatot, ha a kivétel
+            # valóban felmegy hozzájuk. Ha itt "return []"-t adnánk vissza,
+            # a hívó azt hinné, minden rendben, csak nincs adat - és egy
+            # halott kapcsolat örökre halott maradna (ez okozta, hogy
+            # újraindítás/leállítás után nem jöttek vissza a pozíciók).
+            raise
 
     async def get_symbol_id(self, symbol_name: str) -> Optional[int]:
         """
@@ -464,7 +473,9 @@ class CTraderMCPServer:
 
         except Exception as e:
             logger.error(f"❌ Pozíciók lekérési hiba: {e}")
-            return []
+            # Lásd get_symbols_list komment - itt sem nyelhetjük el a hibát,
+            # különben a hívó reconnect-logikája sosem aktiválódik.
+            raise
 
     async def place_order(
         self,

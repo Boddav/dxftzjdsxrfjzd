@@ -843,6 +843,18 @@ Provide ONLY the JSON, no other text.
 
         except Exception as e:
             logger.error(f"❌ [{symbol}] Trade végrehajtási hiba: {e}")
+            if self._looks_like_connection_error(e):
+                # Ugyanaz a self-healing, mint _process_symbol-ban: ne várjunk
+                # a ciklus végéig egy elszállt kapcsolattal - a trade-végrehajtás
+                # is kapcsolat-hibába futhat (pl. get_positions/place_order),
+                # ilyenkor azonnal próbáljunk újracsatlakozni.
+                logger.warning("⚠️ Kapcsolat-jellegű hiba trade végrehajtás közben, azonnali újracsatlakozás...")
+                try:
+                    await self.mcp_server.close()
+                    await self.mcp_server.connect()
+                    logger.info("✅ MCP kapcsolat helyreállítva")
+                except Exception as reconnect_error:
+                    logger.error(f"❌ Újracsatlakozás sikertelen: {reconnect_error}")
 
     @staticmethod
     def _pip_value(symbol: str) -> float:

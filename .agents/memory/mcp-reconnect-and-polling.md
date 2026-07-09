@@ -9,6 +9,8 @@ The bot's long-lived `CTraderMCPServer.authenticated` flag only flips on explici
 
 **How to apply:** after any await on a connection-bound call, if the error looks connection-related (keywords: connection/websocket/closed/keepalive/ping timeout, or ConnectionError/OSError/TimeoutError), close+reconnect immediately rather than waiting for a periodic health check — reconnect promptly, don't just detect at the end of a long cycle.
 
+**Critical companion rule: don't swallow connection errors into empty-result fallbacks.** If a low-level fetch method (`get_positions`, `get_symbols_list`, etc.) catches ALL exceptions and returns `[]`/`{}` instead of re-raising, any reconnect-on-error logic further up the call chain never fires — the caller sees "call succeeded, no data" forever, not "call failed." This silently froze a shared connection dead after one keepalive drop until a full process restart. Methods that need retry/reconnect behavior from a caller must let connection-class exceptions propagate; only swallow exceptions at the outermost layer that actually decides what to do about them (log + reconnect, or return a user-facing error).
+
 Also: don't resubscribe to spot/tick data on every poll of a shared/reused connection — track which symbol_ids are already subscribed (clear the set on close/reconnect) and only send `SUBSCRIBE_SPOTS_REQ` for new ones. Repeated resubscribing on frequent dashboard polling (e.g. every 5s) was a bigger driver of API traffic than the polling interval itself.
 
 ## Dashboard endpoints computing the same expensive live data must share one cache
