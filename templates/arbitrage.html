@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbitrázs - AI Trading Advisor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 AI Trading Advisor</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/config">Beállítások</a>
+            <a href="/logs">Naplók</a>
+            <a href="/arbitrage" class="active">Arbitrázs</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>Bróker közötti árarbitrázs</h1>
+            <div class="bot-controls">
+                <button id="arbStartBtn" class="btn btn-success" onclick="startArbitrage()">▶ Indítás</button>
+                <button id="arbStopBtn" class="btn btn-danger" onclick="stopArbitrage()">⏹ Leállítás</button>
+            </div>
+        </div>
+
+        <div class="warn-banner">
+            ⚠️ <strong>Kísérleti funkció — kizárólag DEMO számlákon.</strong>
+            Éles (live) hitelesítő adattal kötött bróker esetén a megbízásküldés
+            a rendszer szinten le van tiltva. Legfeljebb 5 bróker köthető be.
+            Ez a motor teljesen elkülönül a fő, Claude-alapú kereskedési bottól.
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Motor státusza</div>
+                <div class="stat-value" id="arbStatus">
+                    <span class="status-indicator offline"></span> Leállítva
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Bekötött brókerek</div>
+                <div class="stat-value" id="arbBrokerCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Nyitott párok</div>
+                <div class="stat-value" id="arbOpenCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Napi becsült eredmény</div>
+                <div class="stat-value" id="arbDailyPnl">0.00</div>
+            </div>
+        </div>
+
+        <div id="arbMessage"></div>
+
+        <div class="section">
+            <h2>Brókerek</h2>
+            <p class="sub-text">Új demo bróker hozzáadása: adj neki nevet, majd kattints a "cTrader azonosítás" gombra — ugyanazzal a cTrader ID bejelentkezéssel, de más demo számlát választva köthető be egy újabb bróker.</p>
+            <div class="form-group" style="display:flex; gap:10px; align-items:flex-end; max-width:420px;">
+                <div style="flex:1">
+                    <label for="newBrokerName">Új bróker neve</label>
+                    <input type="text" id="newBrokerName" class="form-control" placeholder="pl. broker_a">
+                </div>
+                <button class="btn btn-primary" onclick="addBroker()">🔐 cTrader azonosítás</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Név</th><th>Account ID</th><th>Állapot</th><th>Művelet</th></tr></thead>
+                    <tbody id="brokersTableBody"><tr><td colspan="4" class="no-data">Nincs bekötött bróker</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Paraméterek</h2>
+            <form id="arbConfigForm">
+                <div class="form-group">
+                    <label for="arbSymbols">Figyelt szimbólumok (vesszővel elválasztva)</label>
+                    <input type="text" id="arbSymbols" class="form-control" placeholder="EURUSD,XAUUSD">
+                </div>
+                <div class="form-group">
+                    <label for="arbOpenThreshold">Nyitási küszöb (%)</label>
+                    <input type="number" step="0.001" id="arbOpenThreshold" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="arbCloseThreshold">Zárási küszöb (%)</label>
+                    <input type="number" step="0.001" id="arbCloseThreshold" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="arbLots">Lot méret (páronként, mindkét lábon)</label>
+                    <input type="number" step="0.01" id="arbLots" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="arbTimeout">Biztonsági időkorlát (perc)</label>
+                    <input type="number" step="1" id="arbTimeout" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="arbDailyLoss">Napi veszteséglimit (becsült, USD)</label>
+                    <input type="number" step="1" id="arbDailyLoss" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="arbAutoExecute" style="width:auto; display:inline-block; margin-right:8px;">Automatikus végrehajtás (kikapcsolva = csak jelzés, nem nyit pozíciót)</label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-primary" onclick="saveArbConfig()">💾 Mentés</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Élő árak</h2>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Szimbólum</th><th>Bróker</th><th>Bid</th><th>Ask</th></tr></thead>
+                    <tbody id="pricesTableBody"><tr><td colspan="4" class="no-data">Nincs adat</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Nyitott arbitrázs párok</h2>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Szimbólum</th><th>BUY bróker</th><th>SELL bróker</th><th>Lot</th><th>Nyitási diff %</th><th>Nyitva</th></tr></thead>
+                    <tbody id="openPairsTableBody"><tr><td colspan="6" class="no-data">Nincs nyitott pár</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Lezárt párok (előzmény)</h2>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Szimbólum</th><th>BUY / SELL bróker</th><th>Nyitási → zárási diff %</th><th>Ok</th><th>Zárva</th></tr></thead>
+                    <tbody id="closedPairsTableBody"><tr><td colspan="5" class="no-data">Nincs előzmény</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/arbitrage.js') }}"></script>
+</body>
+</html>

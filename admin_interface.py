@@ -11,16 +11,20 @@ import time
 import asyncio
 import threading
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from markupsafe import escape
 from flask_cors import CORS
 from dotenv import load_dotenv
 import logging
 import requests as http_requests
+import uuid
+from typing import Optional
 
 # Saját modulok
 from ai_trading_advisor import AITradingAdvisor
 from mcp_server import CTraderMCPServer
 from mcp_connection_manager import run_shared
+import arbitrage_engine
 
 load_dotenv()
 
@@ -673,6 +677,117 @@ def logs_page():
     return render_template('logs.html')
 
 
+@app.route('/arbitrage')
+def arbitrage_page():
+    """Bróker közötti árarbitrázs (demo, kísérleti) oldal"""
+    return render_template('arbitrage.html')
+
+
+@app.route('/api/arbitrage/status')
+def api_arbitrage_status():
+    """Élő ár-összehasonlítás, nyitott/lezárt párok és motor-státusz"""
+    try:
+        return jsonify({'success': True, **arbitrage_engine.engine.get_status_snapshot()})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+
+@app.route('/api/arbitrage/brokers', methods=['GET', 'POST'])
+def api_arbitrage_brokers():
+    """
+    GET: bekötött (demo) arbitrázs-brókerek listája (hitelesítő adat nélkül).
+    POST: egy meglévő bróker engedélyezése/letiltása ({'name':..., 'enabled': bool}).
+    Új bróker hozzáadása NEM itt, hanem a /oauth-setup?broker=<név> OAuth
+    folyamaton keresztül történik (lásd oauth_setup) - itt hitelesítő adatot
+    sosem fogadunk el nyers JSON-ként.
+    """
+    if request.method == 'GET':
+        return jsonify({'success': True, 'brokers': arbitrage_engine.load_brokers()})
+
+    data = request.json or {}
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'success': False, 'message': 'Hiányzó bróker név'}), 400
+    brokers = arbitrage_engine.load_brokers()
+    for b in brokers:
+        if b.get('name') == name:
+            b['enabled'] = bool(data.get('enabled', True))
+            arbitrage_engine.save_brokers(brokers)
+            return jsonify({'success': True, 'brokers': brokers})
+    return jsonify({'success': False, 'message': f'Nincs ilyen bróker: {name}'}), 404
+
+
+@app.route('/api/arbitrage/brokers/<name>', methods=['DELETE'])
+def api_arbitrage_broker_delete(name):
+    """Egy arbitrázs-bróker eltávolítása (hitelesítő fájl + lista bejegyzés)"""
+    try:
+        brokers = [b for b in arbitrage_engine.load_brokers() if b.get('name') != name]
+        arbitrage_engine.save_brokers(brokers)
+        cred_path = arbitrage_engine.broker_credentials_path(name)
+        if os.path.exists(cred_path):
+            os.remove(cred_path)
+        return jsonify({'success': True, 'brokers': brokers})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+
+@app.route('/api/arbitrage/config', methods=['GET', 'POST'])
+def api_arbitrage_config():
+    """Arbitrázs paraméterek (küszöbök, lot-méret, napi veszteséglimit stb.)"""
+    if request.method == 'GET':
+        return jsonify({'success': True, 'config': arbitrage_engine.load_config()})
+
+    data = request.json or {}
+    try:
+        cfg = {}
+        if 'symbols' in data:
+            symbols = data['symbols']
+            if not isinstance(symbols, list) or not symbols:
+                return jsonify({'success': False, 'message': 'Legalább egy szimbólumot meg kell adni'}), 400
+            cfg['symbols'] = [s.strip().upper() for s in symbols if s.strip()]
+        for key in ('open_threshold_pct', 'close_threshold_pct', 'lots', 'daily_loss_limit_usd'):
+            if key in data:
+                val = float(data[key])
+                if not math.isfinite(val) or val < 0:
+                    return jsonify({'success': False, 'message': f'Érvénytelen érték: {key}'}), 400
+                cfg[key] = val
+        if 'safety_timeout_minutes' in data:
+            val = float(data['safety_timeout_minutes'])
+            if not math.isfinite(val) or val < 1:
+                return jsonify({'success': False, 'message': 'A biztonsági időkorlát legalább 1 perc lehet'}), 400
+            cfg['safety_timeout_minutes'] = val
+        if 'poll_interval_seconds' in data:
+            val = float(data['poll_interval_seconds'])
+            if not math.isfinite(val) or val < 2:
+                return jsonify({'success': False, 'message': 'A frissítési gyakoriság legalább 2 másodperc lehet'}), 400
+            cfg['poll_interval_seconds'] = val
+        if 'auto_execute' in data:
+            cfg['auto_execute'] = bool(data['auto_execute'])
+
+        arbitrage_engine.save_config(cfg)
+        return jsonify({'success': True, 'config': arbitrage_engine.load_config()})
+    except (TypeError, ValueError) as e:
+        return jsonify({'success': False, 'message': f'Érvénytelen érték: {e}'}), 400
+
+
+@app.route('/api/arbitrage/start', methods=['POST'])
+def api_arbitrage_start():
+    try:
+        arbitrage_engine.engine.start()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+
+@app.route('/api/arbitrage/stop', methods=['POST'])
+def api_arbitrage_stop():
+    try:
+        arbitrage_engine.engine.stop()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+
 @app.route('/api/logs')
 def api_logs():
     """Naplók lekérése"""
@@ -718,8 +833,19 @@ def _get_redirect_uri():
     return f"http://localhost:{port}/callback"
 
 
-def _exchange_code_for_tokens(code, redirect_uri=None):
-    """Authorization code cseréje tokenekre. Visszaadja a credentials dict-et vagy dob kivételt."""
+def _exchange_code_for_tokens(code, redirect_uri=None, broker_name=None):
+    """
+    Authorization code cseréje tokenekre. Visszaadja a credentials dict-et vagy dob kivételt.
+
+    Args:
+        broker_name: Ha megadott, az eredmény NEM a fő credentials.json-ba
+            kerül, hanem az arbitrázs motor számára egy külön, névhez kötött
+            fájlba (lásd arbitrage_engine.broker_credentials_path), és a
+            bróker bejegyzés az arbitrage_brokers.json listába kerül. Ugyanaz
+            a cTrader alkalmazás (CTRADER_CLIENT_ID/SECRET) engedélyezi több,
+            különböző demo számla hozzáférését - ez felel meg a "több bróker"
+            forgatókönyvnek a cTrader ID egységes bejelentkezésén keresztül.
+    """
     client_id = os.getenv('CTRADER_CLIENT_ID', '')
     client_secret = os.getenv('CTRADER_CLIENT_SECRET', '')
     if redirect_uri is None:
@@ -742,8 +868,16 @@ def _exchange_code_for_tokens(code, redirect_uri=None):
         raise ValueError(f"cTrader hibaválasz (nincs access token): {tokens}")
     logger.info("✅ cTrader access token kapva")
 
-    # Account ID lekérése
+    # Account ID lekérése - a talált számla tényleges demo/live jellegét is
+    # eltároljuk (resolved_is_live), mert a credentials.json 'isLive' mezője
+    # ez alapján dönt a mcp_server.place_order/close_position tiltásáról -
+    # korábban ez a mező mindig hardkódolt False volt, ami LEHETŐVÉ TETTE,
+    # hogy egy éles (live) számla is "demo"-ként legyen elmentve, ha nincs
+    # demo számla a listában és az első (esetleg live) számlára esik a
+    # fallback. Ha nem sikerül egyértelműen megállapítani, biztonságból
+    # live-nak tekintjük (fail closed), ne demo-nak.
     account_id = os.getenv('CTRADER_ACCOUNT_ID', '')
+    resolved_is_live = True
     try:
         acc_resp = http_requests.get('https://openapi.ctrader.com/apps/accounts',
                                      headers={'Authorization': f'Bearer {access_token}'})
@@ -752,15 +886,21 @@ def _exchange_code_for_tokens(code, redirect_uri=None):
         # A cTrader a listát {"data": [...]} alá csomagolhatja
         accounts = acc_json.get('data', acc_json) if isinstance(acc_json, dict) else acc_json
         if accounts:
-            for acc in accounts:
-                if not acc.get('live', True):
-                    account_id = str(acc.get('accountId') or acc.get('ctidTraderAccountId'))
-                    break
-            if not account_id:
-                first = accounts[0]
-                account_id = str(first.get('accountId') or first.get('ctidTraderAccountId'))
+            demo_acc = next((acc for acc in accounts if not acc.get('live', True)), None)
+            chosen = demo_acc or accounts[0]
+            account_id = str(chosen.get('accountId') or chosen.get('ctidTraderAccountId'))
+            resolved_is_live = bool(chosen.get('live', True))
     except Exception as e:
         logger.warning(f"Account lekérés sikertelen, manuális ID-t használ: {e}")
+        # Ha nem tudjuk lekérdezni a számla típusát, nem feltételezzük demo-nak.
+        resolved_is_live = True
+
+    if broker_name and resolved_is_live:
+        raise ValueError(
+            "A kiválasztott cTrader számla ÉLES (live) számlának tűnik. Az arbitrázs "
+            "brókerek kizárólag DEMO számlával köthetők be - válassz demo számlát a "
+            "cTrader ID bejelentkezéskor, és próbáld újra."
+        )
 
     credentials = {
         'clientId': client_id,
@@ -768,12 +908,57 @@ def _exchange_code_for_tokens(code, redirect_uri=None):
         'accessToken': access_token,
         'refreshToken': refresh_token,
         'accountId': account_id,
-        'redirectUri': redirect_uri
+        'redirectUri': redirect_uri,
+        'isLive': resolved_is_live,
     }
-    with open('credentials.json', 'w') as f:
-        json.dump(credentials, f, indent=2)
-    logger.info("💾 credentials.json létrehozva")
+
+    if broker_name:
+        from arbitrage_engine import broker_credentials_path, load_brokers, save_brokers, MAX_BROKERS
+        path = broker_credentials_path(broker_name)
+        with open(path, 'w') as f:
+            json.dump(credentials, f, indent=2)
+        brokers = [b for b in load_brokers() if b.get('name') != broker_name]
+        if len(brokers) >= MAX_BROKERS:
+            raise ValueError(f"Legfeljebb {MAX_BROKERS} bróker köthető be")
+        brokers.append({'name': broker_name, 'account_id': account_id, 'enabled': True})
+        save_brokers(brokers)
+        logger.info(f"💾 Arbitrázs bróker hitelesítve és mentve: {broker_name} ({path})")
+    else:
+        with open('credentials.json', 'w') as f:
+            json.dump(credentials, f, indent=2)
+        logger.info("💾 credentials.json létrehozva")
     return credentials
+
+
+def _valid_broker_name(name: str) -> bool:
+    return bool(name) and all(c.isalnum() or c in ('-', '_') for c in name)
+
+
+class OAuthStateError(Exception):
+    """A state/nonce nem egyezik a sessionben tárolttal - lásd _broker_name_from_state."""
+
+
+def _broker_name_from_state(state: str) -> Optional[str]:
+    """
+    A /oauth-setup által kiadott, session-hez kötött nonce-ot ellenőrzi a
+    callback 'state' paraméterében.
+
+    Szigorúan elutasítja (OAuthStateError-t dob), ha VOLT folyamatban lévő
+    OAuth kérés (van session nonce), de a beérkező state nem egyezik -
+    ez korábban csendben a fő (broker_name=None) hitelesítési útvonalra esett
+    vissza, ami gyengítette a CSRF/state védelmet. Ha nincs session nonce
+    (pl. a felhasználó közvetlenül nyitotta a callback URL-t egy korábbi,
+    már felhasznált munkamenetből), a fő fiók azonosítását engedélyezzük
+    changetlenül (None-t ad vissza) - ez a visszafelé kompatibilis, nem
+    bróker-specifikus OAuth folyamat.
+    """
+    expected_nonce = session.pop('oauth_nonce', None)
+    broker_name = session.pop('oauth_broker', None)
+    if expected_nonce is None:
+        return None
+    if not state or state != expected_nonce:
+        raise OAuthStateError("Érvénytelen vagy lejárt OAuth state - próbáld újra a folyamatot elölről.")
+    return broker_name if broker_name and _valid_broker_name(broker_name) else None
 
 
 @app.route('/callback')
@@ -783,7 +968,20 @@ def oauth_callback():
     if not code:
         return "Hiányzó authorization code", 400
     try:
-        _exchange_code_for_tokens(code, redirect_uri=_get_redirect_uri())
+        broker_name = _broker_name_from_state(request.args.get('state', ''))
+    except OAuthStateError as e:
+        logger.error(f"OAuth state ellenőrzési hiba: {e}")
+        return f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Hiba</title>
+<style>body{{font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fee;margin:0}}
+.box{{background:#fff;padding:40px;border-radius:16px;max-width:480px;text-align:center}}
+h1{{color:#e74c3c}}p{{color:#666;margin:12px 0}}
+.btn{{display:inline-block;background:#e74c3c;color:#fff;padding:10px 24px;border-radius:50px;text-decoration:none;font-weight:700}}</style></head>
+<body><div class="box"><div style="font-size:60px">❌</div>
+<h1>Érvénytelen kérés</h1><p>{escape(str(e))}</p>
+<a href="/oauth-setup" class="btn">↩ Próbáld újra</a></div></body></html>""", 400
+    try:
+        _exchange_code_for_tokens(code, redirect_uri=_get_redirect_uri(), broker_name=broker_name)
         return """<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Sikeres!</title>
 <style>
@@ -813,15 +1011,42 @@ h1{{color:#e74c3c}}p{{color:#666;margin:12px 0}}
 
 @app.route('/oauth-setup')
 def oauth_setup():
-    """cTrader OAuth beállítás oldal"""
+    """
+    cTrader OAuth beállítás oldal.
+
+    Ha a ?broker=<név> query paraméter megadott, ez egy ÚJ, az arbitrázs
+    motorhoz tartozó bróker-fiók (demo) hozzákötése - a state paraméterben
+    visszaküldött névvel a callback tudja, hova mentse a hitelesítést (lásd
+    _broker_name_from_state / _exchange_code_for_tokens). Query param nélkül
+    ez a fő (egy-számlás) fiók azonosítása, változatlan viselkedéssel.
+    """
+    broker_name = request.args.get('broker', '').strip()
+    if broker_name and not _valid_broker_name(broker_name):
+        return "Érvénytelen bróker név (csak betű, szám, '-' és '_' engedélyezett)", 400
     client_id = os.getenv('CTRADER_CLIENT_ID', '')
     redirect_uri = _get_redirect_uri()
+
+    # A state paramétert egy, a szerver-oldali sessionben tárolt nonce-hoz
+    # kötjük (session['oauth_nonce'] -> broker_name), hogy a callback/
+    # oauth-token ne fogadjon el egy tetszőlegesen küldött 'broker' mezőt
+    # forrás nélkül - enélkül egy támadó egy másik felhasználó folyamatban
+    # lévő OAuth code-jával (vagy sajátjával, de más 'broker' mezővel) egy
+    # tetszőleges névre írhatna hitelesítő adatot.
+    nonce = uuid.uuid4().hex
+    session['oauth_nonce'] = nonce
+    session['oauth_broker'] = broker_name or None
+    state_param = f"&state={nonce}"
     auth_url = (
         f"https://id.ctrader.com/my/settings/openapi/grantingaccess/"
         f"?client_id={client_id}"
         f"&redirect_uri={redirect_uri}"
         f"&scope=trading"
+        f"{state_param}"
     )
+    broker_hidden_input = (
+        f'<input type="hidden" name="broker_nonce" value="{escape(nonce)}">'
+    )
+    heading = f"🔐 Bróker azonosítás: {escape(broker_name)}" if broker_name else "🔐 cTrader Azonosítás"
     return f"""<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><title>cTrader OAuth Setup</title>
@@ -845,7 +1070,7 @@ form input:focus{{border-color:#667eea}}
 .warn{{background:#fff8e1;border-left:4px solid #f9a825;padding:12px;border-radius:5px;font-size:13px;color:#555;margin-top:8px}}
 </style></head>
 <body><div class="box">
-<h1>🔐 cTrader Azonosítás</h1>
+<h1>{heading}</h1>
 <p class="sub">Kövesd az alábbi lépéseket a fiókod csatlakoztatásához.</p>
 
 <div class="step">
@@ -883,6 +1108,7 @@ form input:focus{{border-color:#667eea}}
   <div class="step-body">
     <strong>Illeszd be ide a kódot</strong>
     <form action="/oauth-token" method="POST">
+      {broker_hidden_input}
       <input type="text" name="code" placeholder="Másold ide a code értékét..." required autocomplete="off">
       <button type="submit" class="submit-btn">✅ Token lekérése és mentése</button>
     </form>
@@ -896,10 +1122,23 @@ form input:focus{{border-color:#667eea}}
 def oauth_token():
     """Manuálisan beillesztett authorization code feldolgozása"""
     code = request.form.get('code', '').strip()
+    try:
+        broker_name = _broker_name_from_state(request.form.get('broker_nonce', ''))
+    except OAuthStateError as e:
+        logger.error(f"OAuth state ellenőrzési hiba: {e}")
+        return f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Hiba</title>
+<style>body{{font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fee;margin:0}}
+.box{{background:#fff;padding:40px;border-radius:16px;max-width:480px;text-align:center}}
+h1{{color:#e74c3c}}p{{color:#666;margin:12px 0}}
+.btn{{display:inline-block;background:#e74c3c;color:#fff;padding:10px 24px;border-radius:50px;text-decoration:none;font-weight:700}}</style></head>
+<body><div class="box"><div style="font-size:60px">❌</div>
+<h1>Érvénytelen kérés</h1><p>{escape(str(e))}</p>
+<a href="/oauth-setup" class="btn">↩ Próbáld újra</a></div></body></html>""", 400
     if not code:
         return redirect('/oauth-setup')
     try:
-        _exchange_code_for_tokens(code)
+        _exchange_code_for_tokens(code, broker_name=broker_name)
         return """<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Sikeres!</title>
 <style>

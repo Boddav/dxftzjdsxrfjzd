@@ -1,0 +1,12 @@
+{
+  "symbols": [
+    "EURUSD"
+  ],
+  "open_threshold_pct": 0.1,
+  "close_threshold_pct": 0.01,
+  "lots": 0.02,
+  "safety_timeout_minutes": 30,
+  "poll_interval_seconds": 5,
+  "daily_loss_limit_usd": 20.0,
+  "auto_execute": true
+}

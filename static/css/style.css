@@ -320,6 +320,22 @@ tr:hover {
     display: block;
 }
 
+.warn-banner {
+    background: #fff8e1;
+    border-left: 4px solid #f9a825;
+    padding: 1rem;
+    border-radius: 6px;
+    color: #555;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
+
+.sub-text {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
 .logs-container {
     background: #1e1e1e;
     color: #d4d4d4;
