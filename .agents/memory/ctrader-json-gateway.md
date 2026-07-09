@@ -20,5 +20,8 @@ In `PROTO_OA_RECONCILE_RES` positions, `position.price` is already a real decima
 ## Order response payloadType
 On this JSON gateway, a successful order execution response reuses the same `payloadType` as `PROTO_OA_NEW_ORDER_REQ` (2126) rather than a distinct execution-event type — disambiguate success by checking for an `order`/`position` key in the payload, not by payloadType alone.
 
+## Trendbars (candles) request unresolved
+`PROTO_OA_GET_TRENDBARS_REQ` (2122) on this JSON gateway consistently fails with `INVALID_REQUEST: Message missing required fields: trader`, even sending all documented fields (`ctidTraderAccountId`, `symbolId`, `period` as string or numeric enum, `fromTimestamp`, `toTimestamp`, `count`). Adding a literal `trader` field breaks JSON parsing server-side instead of fixing it. Root cause not yet found — needs a working reference client/packet capture to compare exact wire format. Until fixed, candle-based technical analysis (and therefore the automated trading decision loop) cannot get bar data and will safely skip trading (falls back to HOLD/no-data) rather than trade blind.
+
 ## Resource management
 Each `CTraderMCPServer` instance holds one WebSocket; always call a `close()` on it after use (e.g. in a `finally` block) when opening a fresh connection per HTTP request, or connections/file descriptors leak under polling.

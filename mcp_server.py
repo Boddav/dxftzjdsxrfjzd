@@ -161,7 +161,7 @@ class CTraderMCPServer:
         logger.info("🔐 Application auth kérés...")
         await self.ws.send(json.dumps(msg))
 
-        response = json.loads(await self.ws.recv())
+        response = json.loads(await asyncio.wait_for(self.ws.recv(), timeout=15))
         if response['payloadType'] != self.PROTO_OA_APPLICATION_AUTH_RES:
             raise Exception(f"Application auth hiba: {response}")
 
@@ -181,7 +181,7 @@ class CTraderMCPServer:
         logger.info("🔐 Account auth kérés...")
         await self.ws.send(json.dumps(msg))
 
-        response = json.loads(await self.ws.recv())
+        response = json.loads(await asyncio.wait_for(self.ws.recv(), timeout=15))
         if response['payloadType'] != self.PROTO_OA_ACCOUNT_AUTH_RES:
             raise Exception(f"Account auth hiba: {response}")
 
@@ -208,7 +208,7 @@ class CTraderMCPServer:
         }
 
         await self.ws.send(json.dumps(msg))
-        response = json.loads(await self.ws.recv())
+        response = json.loads(await asyncio.wait_for(self.ws.recv(), timeout=20))
 
         return response
 
@@ -293,8 +293,8 @@ class CTraderMCPServer:
             if response['payloadType'] != self.PROTO_OA_SUBSCRIBE_SPOTS_RES:
                 raise Exception(f"Spot subscription hiba: {response}")
 
-            # Spot event várakozás
-            spot_event = json.loads(await self.ws.recv())
+            # Spot event várakozás (timeout, ha nem jön tick időben)
+            spot_event = json.loads(await asyncio.wait_for(self.ws.recv(), timeout=15))
 
             if spot_event['payloadType'] == self.PROTO_OA_SPOT_EVENT:
                 ticks = spot_event['payload'].get('trendbar', [])
@@ -489,15 +489,22 @@ class CTraderMCPServer:
             if not symbol_id:
                 raise ValueError(f"Szimbólum nem található: {symbol}")
 
-            # Timeframe map
+            # Timeframe map (ProtoOATrendbarPeriod numerikus enum értékei)
             timeframe_map = {
-                'M1': 'M1',
-                'M5': 'M5',
-                'M15': 'M15',
-                'M30': 'M30',
-                'H1': 'H1',
-                'H4': 'H4',
-                'D1': 'D1'
+                'M1': 1,
+                'M2': 2,
+                'M3': 3,
+                'M4': 4,
+                'M5': 5,
+                'M10': 6,
+                'M15': 7,
+                'M30': 8,
+                'H1': 9,
+                'H4': 10,
+                'H12': 11,
+                'D1': 12,
+                'W1': 13,
+                'MN1': 14
             }
 
             # Time range
@@ -509,9 +516,10 @@ class CTraderMCPServer:
                 {
                     'ctidTraderAccountId': self.account_id,
                     'symbolId': symbol_id,
-                    'period': timeframe_map.get(timeframe, 'M5'),
+                    'period': timeframe_map.get(timeframe, 5),
                     'fromTimestamp': from_timestamp,
-                    'toTimestamp': to_timestamp
+                    'toTimestamp': to_timestamp,
+                    'count': count
                 }
             )
 

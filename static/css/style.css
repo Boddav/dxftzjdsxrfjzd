@@ -208,6 +208,29 @@ tr:hover {
     color: #95a5a6;
 }
 
+.checkbox-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.checkbox-item input {
+    width: auto;
+    margin: 0;
+}
+
 .form-group {
     margin-bottom: 1.5rem;
 }

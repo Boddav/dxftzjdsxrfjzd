@@ -138,19 +138,43 @@ class RiskManager:
         self.max_risk_per_trade = max_risk_per_trade
         self.max_open_positions = max_open_positions
 
+    @staticmethod
+    def _contract_size(symbol: str) -> float:
+        """
+        1 lot mérete egységben, szimbólumonként (egyszerűsített közelítés,
+        a valós cTrader szimbólum-specifikációt nem kérdezi le)
+
+        Args:
+            symbol: Trading szimbólum
+
+        Returns:
+            float: 1 lot mérete alapegységben
+        """
+        symbol = symbol.upper()
+        if 'XAU' in symbol:
+            return 100.0  # 1 lot arany = 100 uncia
+        if 'XAG' in symbol:
+            return 5000.0  # 1 lot ezüst = 5000 uncia
+        if symbol.startswith('BTC') or symbol.startswith('ETH'):
+            return 1.0  # 1 lot kripto = 1 egység
+        return 100000.0  # sztenderd forex párok
+
     def calculate_position_size(
         self,
         account_balance: float,
         entry_price: float,
-        stop_loss: float
+        stop_loss: float,
+        symbol: str = "XAUUSD"
     ) -> int:
         """
-        Pozíció méret számítása kockázat alapján
+        Pozíció méret számítása kockázat alapján, szimbólumra szabott
+        kontraktusmérettel
 
         Args:
             account_balance: Számla egyenleg
             entry_price: Belépési ár
             stop_loss: Stop loss ár
+            symbol: Trading szimbólum (a kontraktusméret meghatározásához)
 
         Returns:
             int: Volumen mikroegységben
@@ -164,16 +188,17 @@ class RiskManager:
         if price_difference == 0:
             return 10000  # 0.01 lot alapértelmezett
 
-        # Lot méret számítása
-        # 1 lot = 100,000 units (forex/gold esetén)
-        # 1 pip movement = $10 for 1 lot (XAUUSD esetén lehet más)
-        lots = max_risk_amount / (price_difference * 100)
+        contract_size = self._contract_size(symbol)
+
+        # Lot méret számítása: mennyi lot mellett éri el a kockázat a max_risk_amount-ot
+        # dollár_kockázat_per_lot = price_difference * contract_size
+        lots = max_risk_amount / (price_difference * contract_size)
 
         # Mikroegységre konvertálás (100,000 mikroegység = 1 lot)
         volume_micro = int(lots * 100000)
 
-        # Minimum 0.01 lot (10000 mikroegység)
-        return max(volume_micro, 10000)
+        # Minimum 0.01 lot (1000 mikroegység, mivel 1000/100000 = 0.01 lot)
+        return max(volume_micro, 1000)
 
     def can_open_position(self, current_positions: int) -> bool:
         """
@@ -199,19 +224,21 @@ class AITradingAdvisor:
     - Kockázatkezelés
     """
 
-    def __init__(self, anthropic_api_key: str):
+    def __init__(self, anthropic_api_key: str, symbols: Optional[List[str]] = None):
         """
         Inicializálás
 
         Args:
             anthropic_api_key: Anthropic API kulcs
+            symbols: Kereskedett szimbólumok listája (pl. ["XAUUSD", "EURUSD"])
         """
         self.anthropic = Anthropic(api_key=anthropic_api_key)
         self.mcp_server = CTraderMCPServer()
         self.risk_manager = RiskManager(max_risk_per_trade=0.02, max_open_positions=3)
         self.running = False
+        self.symbols = symbols or ["XAUUSD"]
 
-        logger.info("🤖 AI Trading Advisor inicializálva")
+        logger.info(f"🤖 AI Trading Advisor inicializálva - Szimbólumok: {', '.join(self.symbols)}")
 
     async def start(self):
         """Trading bot indítása"""
@@ -230,7 +257,13 @@ class AITradingAdvisor:
             # Fő loop
             while self.running:
                 await self.trading_loop()
-                await asyncio.sleep(60)  # 1 perc várakozás iterációk között
+
+                # 1 perc várakozás, de 5 másodpercenként ellenőrizzük a leállítást,
+                # hogy a Stop gomb gyorsan hasson
+                for _ in range(12):
+                    if not self.running:
+                        break
+                    await asyncio.sleep(5)
 
         except KeyboardInterrupt:
             logger.info("⚠️ Bot leállítva (KeyboardInterrupt)")
@@ -247,16 +280,20 @@ class AITradingAdvisor:
 
     async def trading_loop(self):
         """
-        Fő trading loop
+        Fő trading loop - végigmegy az összes konfigurált szimbólumon
 
+        Szimbólumonként:
         1. Piaci adatok lekérése
         2. Technikai analízis
         3. Claude AI konzultáció
         4. Trading döntés végrehajtása
         """
-        try:
-            symbol = "XAUUSD"  # Gold
+        for symbol in self.symbols:
+            await self._process_symbol(symbol)
 
+    async def _process_symbol(self, symbol: str):
+        """Egy szimbólum elemzése és kereskedési döntés végrehajtása"""
+        try:
             # 1. Piaci adatok
             market_data = await self.mcp_server.get_market_data(symbol)
             candles = await self.mcp_server.get_candles(symbol, timeframe="M5", count=100)
@@ -282,12 +319,12 @@ class AITradingAdvisor:
 
             # 4. Trading döntés végrehajtása
             if decision['action'] != 'HOLD':
-                await self.execute_trade(decision, market_data, account_info)
+                await self.execute_trade(symbol, decision, market_data, account_info)
 
-            logger.info(f"✅ Trading loop befejezve - Döntés: {decision['action']}")
+            logger.info(f"✅ [{symbol}] Trading loop befejezve - Döntés: {decision['action']}")
 
         except Exception as e:
-            logger.error(f"❌ Trading loop hiba: {e}")
+            logger.error(f"❌ [{symbol}] Trading loop hiba: {e}")
 
     def technical_analysis(self, close_prices: List[float]) -> Dict[str, Any]:
         """
@@ -355,7 +392,7 @@ class AITradingAdvisor:
         try:
             # Prompt összeállítása
             prompt = f"""
-You are an expert trading advisor analyzing {symbol} (Gold).
+You are an expert trading advisor analyzing {symbol}.
 
 **Current Market Data:**
 - Bid: {market_data.get('bid', 0)}
@@ -437,6 +474,7 @@ Provide ONLY the JSON, no other text.
 
     async def execute_trade(
         self,
+        symbol: str,
         decision: Dict,
         market_data: Dict,
         account_info: Dict
@@ -445,6 +483,7 @@ Provide ONLY the JSON, no other text.
         Trading döntés végrehajtása
 
         Args:
+            symbol: Trading szimbólum
             decision: AI döntés
             market_data: Piaci adatok
             account_info: Számla információk
@@ -453,23 +492,21 @@ Provide ONLY the JSON, no other text.
             # Kockázatkezelés ellenőrzése
             positions = await self.mcp_server.get_positions()
             if not self.risk_manager.can_open_position(len(positions)):
-                logger.warning("⚠️ Maximum nyitott pozíciók száma elérve")
+                logger.warning(f"⚠️ [{symbol}] Maximum nyitott pozíciók száma elérve")
                 return
 
             # Confidence threshold
             if decision['confidence'] < 0.6:
-                logger.info(f"⚠️ Alacsony confidence ({decision['confidence']:.2f}), skip trade")
+                logger.info(f"⚠️ [{symbol}] Alacsony confidence ({decision['confidence']:.2f}), skip trade")
                 return
 
             action = decision['action']
-            symbol = "XAUUSD"
 
             # Entry price
             entry_price = market_data['ask'] if action == 'BUY' else market_data['bid']
 
             # Stop Loss és Take Profit számítása (pip-ben)
-            # XAUUSD esetén 1 pip = 0.1
-            pip_value = 0.1
+            pip_value = self._pip_value(symbol)
             stop_loss_distance = decision.get('stop_loss_pips', 20) * pip_value
             take_profit_distance = decision.get('take_profit_pips', 40) * pip_value
 
@@ -484,7 +521,8 @@ Provide ONLY the JSON, no other text.
             volume = self.risk_manager.calculate_position_size(
                 account_balance=account_info['balance'],
                 entry_price=entry_price,
-                stop_loss=stop_loss
+                stop_loss=stop_loss,
+                symbol=symbol
             )
 
             # Megbízás leadása (volume mikroegységben -> lot konverzió)
@@ -497,13 +535,33 @@ Provide ONLY the JSON, no other text.
             )
 
             if order_result.get('success'):
-                logger.info(f"✅ Trade végrehajtva: {action} {volume/100000:.2f} lot @ {entry_price:.2f}")
+                logger.info(f"✅ [{symbol}] Trade végrehajtva: {action} {volume/100000:.2f} lot @ {entry_price:.2f}")
                 logger.info(f"   SL: {stop_loss:.2f}, TP: {take_profit:.2f}")
             else:
-                logger.error(f"❌ Trade hiba: {order_result.get('error')}")
+                logger.error(f"❌ [{symbol}] Trade hiba: {order_result.get('error')}")
 
         except Exception as e:
-            logger.error(f"❌ Trade végrehajtási hiba: {e}")
+            logger.error(f"❌ [{symbol}] Trade végrehajtási hiba: {e}")
+
+    @staticmethod
+    def _pip_value(symbol: str) -> float:
+        """
+        1 pip mérete szimbólumonként (egyszerűsített közelítés)
+
+        Args:
+            symbol: Trading szimbólum
+
+        Returns:
+            float: 1 pip mérete árfolyam-egységben
+        """
+        symbol = symbol.upper()
+        if 'XAU' in symbol or 'XAG' in symbol:
+            return 0.1  # arany/ezüst
+        if 'JPY' in symbol:
+            return 0.01  # JPY párok
+        if symbol.startswith('BTC') or symbol.startswith('ETH'):
+            return 1.0  # kripto
+        return 0.0001  # sztenderd forex párok
 
 
 async def main():

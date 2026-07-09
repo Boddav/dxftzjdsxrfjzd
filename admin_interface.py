@@ -7,6 +7,7 @@ Web-alapú adminisztrációs felület a trading bot kezeléséhez
 import os
 import json
 import asyncio
+import threading
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_cors import CORS
@@ -38,15 +39,47 @@ CORS(app, resources={
     }
 })
 
+DEFAULT_SYMBOLS = ['XAUUSD']
+AVAILABLE_SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTCUSD']
+
 # Globális bot instance
 bot_instance = None
+bot_thread = None
+bot_generation = 0  # minden start hívás növeli - elavult szálak nem írhatják felül az új státuszt
+bot_lock = threading.Lock()  # start/stop versenyhelyzetek elleni védelem
 bot_status = {
     'running': False,
     'last_update': None,
     'positions': [],
     'trades_today': 0,
-    'pnl_today': 0.0
+    'pnl_today': 0.0,
+    'symbols': DEFAULT_SYMBOLS
 }
+
+
+def _get_configured_symbols():
+    """A kiválasztott kereskedési szimbólumok beolvasása a configból"""
+    raw = os.getenv('TRADING_SYMBOLS', '')
+    symbols = [s.strip().upper() for s in raw.split(',') if s.strip()]
+    return symbols or DEFAULT_SYMBOLS
+
+
+def _bot_thread_target(advisor, generation):
+    """A trading bot async loop-jának futtatása egy dedikált szálon"""
+    error_message = None
+    try:
+        asyncio.run(advisor.start())
+    except Exception as e:
+        error_message = str(e)
+        logger.error(f"Bot szál hiba: {e}")
+    finally:
+        with bot_lock:
+            # Csak akkor írjuk felül a globális státuszt, ha még ez a legutóbb indított bot
+            if generation == bot_generation:
+                bot_status['running'] = False
+                bot_status['last_update'] = datetime.now().isoformat()
+                if error_message:
+                    bot_status['error'] = error_message
 
 # Logging
 logging.basicConfig(
@@ -70,58 +103,84 @@ def api_status():
 
 @app.route('/api/start', methods=['POST'])
 def api_start_bot():
-    """Bot indítása"""
-    global bot_instance, bot_status
+    """Bot indítása - valódi automatikus kereskedési loop háttérszálon"""
+    global bot_instance, bot_thread, bot_status, bot_generation
 
-    try:
-        if bot_status['running']:
-            return jsonify({'success': False, 'message': 'Bot már fut!'})
+    with bot_lock:
+        try:
+            if bot_status['running']:
+                return jsonify({'success': False, 'message': 'Bot már fut!'})
 
-        # Ellenőrzés: van-e minden szükséges konfiguráció
-        if not os.getenv('ANTHROPIC_API_KEY'):
-            return jsonify({'success': False, 'message': 'ANTHROPIC_API_KEY nincs beállítva!'})
+            # Ellenőrzés: van-e minden szükséges konfiguráció
+            anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+            if not anthropic_key:
+                return jsonify({'success': False, 'message': 'ANTHROPIC_API_KEY nincs beállítva!'})
 
-        if not os.getenv('CTRADER_CLIENT_ID'):
-            return jsonify({'success': False, 'message': 'cTrader credentials nincsenek beállítva! Később add hozzá.'})
+            if not os.getenv('CTRADER_CLIENT_ID'):
+                return jsonify({'success': False, 'message': 'cTrader credentials nincsenek beállítva! Később add hozzá.'})
 
-        # Bot státusz frissítése (egyelőre csak mock)
-        bot_status['running'] = True
-        bot_status['last_update'] = datetime.now().isoformat()
+            symbols = _get_configured_symbols()
 
-        logger.info("Trading bot indítási kérés fogadva (demo mód)")
-        return jsonify({
-            'success': True,
-            'message': 'Bot státusz frissítve. Teljes funkcionalitáshoz add hozzá a cTrader credentials-eket!'
-        })
+            bot_generation += 1
+            generation = bot_generation
+            bot_instance = AITradingAdvisor(anthropic_key, symbols=symbols)
+            bot_thread = threading.Thread(target=_bot_thread_target, args=(bot_instance, generation), daemon=True)
+            bot_thread.start()
 
-    except Exception as e:
-        logger.error(f"Bot indítási hiba: {str(e)}")
-        return jsonify({'success': False, 'message': f'Hiba: {str(e)}'})
+            bot_status['running'] = True
+            bot_status['symbols'] = symbols
+            bot_status['last_update'] = datetime.now().isoformat()
+            bot_status.pop('error', None)
+
+            logger.info(f"Trading bot elindítva - Szimbólumok: {', '.join(symbols)}")
+            return jsonify({
+                'success': True,
+                'message': f'Bot elindult, percenként elemzi: {", ".join(symbols)}'
+            })
+
+        except Exception as e:
+            logger.error(f"Bot indítási hiba: {str(e)}")
+            return jsonify({'success': False, 'message': f'Hiba: {str(e)}'})
 
 
 @app.route('/api/stop', methods=['POST'])
 def api_stop_bot():
     """Bot leállítása"""
-    global bot_instance, bot_status
+    global bot_instance, bot_thread, bot_status
 
-    try:
-        if not bot_status['running']:
-            return jsonify({'success': False, 'message': 'Bot nem fut!'})
+    with bot_lock:
+        try:
+            if not bot_status['running']:
+                return jsonify({'success': False, 'message': 'Bot nem fut!'})
 
-        if bot_instance:
-            # Bot leállítása
-            # TODO: Implement proper shutdown
-            bot_instance = None
+            if bot_instance:
+                # Jelezzük a loop-nak, hogy álljon le (max. ~5 mp alatt reagál)
+                bot_instance.running = False
 
+            thread_to_join = bot_thread
+
+        except Exception as e:
+            logger.error(f"Bot leállítási hiba: {str(e)}")
+            return jsonify({'success': False, 'message': f'Hiba: {str(e)}'})
+
+    # A join-t a lock-on kívül végezzük, hogy ne blokkoljuk a /api/status-t eközben
+    # Az időkorlát a leghosszabb belső hálózati timeoutnál (20s _send_request) nagyobb kell legyen
+    if thread_to_join:
+        thread_to_join.join(timeout=30)
+
+    with bot_lock:
+        if thread_to_join and thread_to_join.is_alive():
+            # A szál nem állt le időben - ne töröljük a referenciákat, jelezzük a hibát
+            logger.error("Bot leállítási időtúllépés - a szál még fut")
+            return jsonify({'success': False, 'message': 'A bot nem állt le időben, próbáld újra.'})
+
+        bot_instance = None
+        bot_thread = None
         bot_status['running'] = False
         bot_status['last_update'] = datetime.now().isoformat()
 
-        logger.info("Trading bot leállítva")
-        return jsonify({'success': True, 'message': 'Bot sikeresen leállítva'})
-
-    except Exception as e:
-        logger.error(f"Bot leállítási hiba: {str(e)}")
-        return jsonify({'success': False, 'message': f'Hiba: {str(e)}'})
+    logger.info("Trading bot leállítva")
+    return jsonify({'success': True, 'message': 'Bot sikeresen leállítva'})
 
 
 def _run_async(coro):
@@ -241,7 +300,9 @@ def api_config():
             'has_anthropic_key': bool(os.getenv('ANTHROPIC_API_KEY')),
             'account_id': os.getenv('CTRADER_ACCOUNT_ID', ''),
             'max_positions': os.getenv('MAX_OPEN_POSITIONS', '3'),
-            'risk_per_trade': os.getenv('MAX_RISK_PER_TRADE', '0.02')
+            'risk_per_trade': os.getenv('MAX_RISK_PER_TRADE', '0.02'),
+            'available_symbols': AVAILABLE_SYMBOLS,
+            'trading_symbols': _get_configured_symbols()
         }
         return jsonify(config)
 
@@ -270,6 +331,13 @@ def api_config():
                 if val:
                     saved[env_key] = val
                     os.environ[env_key] = val  # azonnal érvényes a futó processben
+
+            # Kereskedési szimbólumok (lista -> vesszővel elválasztott string)
+            symbols = data.get('trading_symbols')
+            if isinstance(symbols, list) and symbols:
+                symbols_str = ','.join(s.strip().upper() for s in symbols if s.strip())
+                saved['TRADING_SYMBOLS'] = symbols_str
+                os.environ['TRADING_SYMBOLS'] = symbols_str
 
             with open(config_file, 'w') as f:
                 json.dump(saved, f, indent=2)

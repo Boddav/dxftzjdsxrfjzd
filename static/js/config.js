@@ -20,6 +20,17 @@ async function loadConfig() {
         document.getElementById('anthropicKey').placeholder = config.has_anthropic_key ?
             '••••••••••••' : 'Nincs beállítva';
 
+        // Szimbólum checkboxok generálása
+        const available = config.available_symbols || ['XAUUSD'];
+        const selected = new Set(config.trading_symbols || ['XAUUSD']);
+        const listEl = document.getElementById('symbolsList');
+        listEl.innerHTML = available.map(sym => `
+            <label class="checkbox-item">
+                <input type="checkbox" name="symbol" value="${sym}" ${selected.has(sym) ? 'checked' : ''}>
+                ${sym}
+            </label>
+        `).join('');
+
     } catch (error) {
         showMessage('Hiba a konfiguráció betöltésekor', 'error');
         console.error(error);
@@ -27,13 +38,22 @@ async function loadConfig() {
 }
 
 async function saveConfig() {
+    const selectedSymbols = Array.from(document.querySelectorAll('input[name="symbol"]:checked'))
+        .map(el => el.value);
+
+    if (selectedSymbols.length === 0) {
+        showMessage('Legalább egy szimbólumot ki kell választani!', 'error');
+        return;
+    }
+
     const config = {
         ctrader_client_id: document.getElementById('clientId').value,
         ctrader_client_secret: document.getElementById('clientSecret').value,
         ctrader_account_id: document.getElementById('accountId').value,
         anthropic_api_key: document.getElementById('anthropicKey').value,
         max_positions: document.getElementById('maxPositions').value,
-        risk_per_trade: document.getElementById('riskPerTrade').value
+        risk_per_trade: document.getElementById('riskPerTrade').value,
+        trading_symbols: selectedSymbols
     };
 
     try {
