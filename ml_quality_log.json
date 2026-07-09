@@ -1,14 +1,14 @@
 {
   "pending": [
     {
-      "id": "f7ece60f688a44dc94aa6525d182b0f5",
+      "id": "989b2757861643429bcaa737ebb782a7",
       "symbol": "XAUUSD",
       "signal": "SELL",
-      "probability_up": 0.295,
-      "reference_timestamp": "2026-07-09T19:40:00",
-      "reference_close": 4120.33,
-      "target_timestamp": "2026-07-09T19:55:00",
-      "created_at": "2026-07-09T19:49:11.889095+00:00"
+      "probability_up": 0.302,
+      "reference_timestamp": "2026-07-09T19:55:00",
+      "reference_close": 4122.52,
+      "target_timestamp": "2026-07-09T20:10:00",
+      "created_at": "2026-07-09T20:00:58.429116+00:00"
     }
   ],
   "resolved": [
@@ -3273,6 +3273,19 @@
       "created_at": "2026-07-09T19:13:52.342657+00:00",
       "resolved_at": "2026-07-09T19:49:11.814554+00:00",
       "actual_up": false,
+      "correct": false
+    },
+    {
+      "id": "f7ece60f688a44dc94aa6525d182b0f5",
+      "symbol": "XAUUSD",
+      "signal": "SELL",
+      "probability_up": 0.295,
+      "reference_timestamp": "2026-07-09T19:40:00",
+      "reference_close": 4120.33,
+      "target_timestamp": "2026-07-09T19:55:00",
+      "created_at": "2026-07-09T19:49:11.889095+00:00",
+      "resolved_at": "2026-07-09T20:00:58.347087+00:00",
+      "actual_up": true,
       "correct": false
     }
   ]

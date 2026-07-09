@@ -1009,13 +1009,13 @@ def _exchange_code_for_tokens(code, redirect_uri=None, broker_name=None):
     if redirect_uri is None:
         redirect_uri = _get_redirect_uri()
 
-    resp = http_requests.post('https://openapi.ctrader.com/apps/token', data={
+    resp = http_requests.get('https://openapi.ctrader.com/apps/token', params={
         'grant_type': 'authorization_code',
         'code': code,
         'redirect_uri': redirect_uri,
         'client_id': client_id,
         'client_secret': client_secret
-    })
+    }, headers={'Accept': 'application/json'})
     logger.info(f"cTrader token válasz [{resp.status_code}]: {resp.text}")
     resp.raise_for_status()
     tokens = resp.json()
