@@ -24,6 +24,34 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Kézzel karbantartott korrelációs csoportok - csak tájékoztató jellegű
+# kontextus a Claude promptban (lásd _get_correlated_symbols /
+# get_ai_decision korrelált_positions blokkja). NEM statisztikai
+# (rolling correlation) számítás, és semmilyen kemény szabályt/limitet
+# nem vezet be - a döntés mindig Claude-nál marad.
+CORRELATION_GROUPS: List[List[str]] = [
+    # Major USD-párok - ha egyszerre van pl. BUY EURUSD és BUY GBPUSD,
+    # az valójában egy koncentrált "USD gyenge" fogadás, nem két
+    # független döntés.
+    ['EURUSD', 'GBPUSD', 'AUDUSD', 'NZDUSD'],
+    # USD ellen erősödő "safe haven"/alacsony kamatú párok (USD a quote
+    # oldalon fordítva mozog, mint a fenti csoport).
+    ['USDJPY', 'USDCHF', 'USDCAD'],
+    # Nemesfémek - erősen együtt mozognak.
+    ['XAUUSD', 'XAGUSD'],
+    # Kripto főbb párok.
+    ['BTCUSD', 'ETHUSD'],
+]
+
+
+def _get_correlated_symbols(symbol: str) -> List[str]:
+    """Az adott szimbólummal egy korrelációs csoportba tartozó többi szimbólum"""
+    correlated = set()
+    for group in CORRELATION_GROUPS:
+        if symbol in group:
+            correlated.update(s for s in group if s != symbol)
+    return sorted(correlated)
+
 
 class TechnicalIndicators:
     """Technikai indikátorok számítása"""
@@ -557,6 +585,19 @@ class AITradingAdvisor:
                     server_pnl = pnl_by_position.get(p.get('position_id'))
                     p['unrealized_pnl'] = server_pnl['net'] if server_pnl else None
 
+            # 2d. Korrelált szimbólumokon fennálló nyitott pozíciók - csak
+            # tájékoztató kontextus a Claude promptban (lásd
+            # CORRELATION_GROUPS), hogy Claude lássa, ha egy új/meglévő
+            # pozíció valójában egy már meglévő, más szimbólumon futó
+            # kitettség megismétlése/erősítése lenne.
+            correlated_symbols = _get_correlated_symbols(symbol)
+            correlated_positions = []
+            if correlated_symbols:
+                for p in positions:
+                    other_symbol = id_to_name.get(p.get('symbol_id'))
+                    if other_symbol in correlated_symbols:
+                        correlated_positions.append({**p, 'symbol': other_symbol})
+
             # 3. Claude AI konzultáció
             decision = await self.get_ai_decision(
                 symbol=symbol,
@@ -567,7 +608,8 @@ class AITradingAdvisor:
                 own_positions=own_positions,
                 volatility=volatility,
                 news_events=news_events,
-                ml_signal=ml_signal
+                ml_signal=ml_signal,
+                correlated_positions=correlated_positions
             )
 
             # 4. Trading döntés végrehajtása
@@ -730,7 +772,8 @@ class AITradingAdvisor:
         own_positions: Optional[List[Dict]] = None,
         volatility: Optional[Dict] = None,
         news_events: Optional[List[Dict]] = None,
-        ml_signal: Optional[Dict] = None
+        ml_signal: Optional[Dict] = None,
+        correlated_positions: Optional[List[Dict]] = None
     ) -> Dict[str, Any]:
         """
         Claude AI döntéskérés
@@ -756,6 +799,10 @@ class AITradingAdvisor:
             ml_signal: MLPredictor.predict() eredménye - egy XGBoost modell
                 kis mintás, kísérleti irány-előrejelzése. Csak kiegészítő
                 szignálként adjuk a promptba, sosem parancsként.
+            correlated_positions: A CORRELATION_GROUPS alapján ezzel a
+                szimbólummal egy csoportba tartozó MÁS szimbólumokon
+                fennálló nyitott pozíciók listája. Csak tájékoztató
+                kontextus - nincs kemény szabály/blokkolás emiatt.
 
         Returns:
             Dict: Trading döntés
@@ -764,6 +811,7 @@ class AITradingAdvisor:
             own_positions = own_positions or []
             volatility = volatility or {}
             news_events = news_events or []
+            correlated_positions = correlated_positions or []
 
             if volatility.get('is_spike'):
                 volatility_block = (
@@ -807,6 +855,29 @@ class AITradingAdvisor:
                 )
             else:
                 ml_block = ""
+
+            if correlated_positions:
+                corr_lines = []
+                for p in correlated_positions:
+                    pnl = p.get('unrealized_pnl')
+                    pnl_text = f"${pnl:.2f}" if isinstance(pnl, (int, float)) else "n/a"
+                    corr_lines.append(
+                        f"- {p.get('symbol')}: {p.get('side')} "
+                        f"{(p.get('volume') or 0) / 10_000_000:.2f} lots, "
+                        f"unrealized P&L: {pnl_text}"
+                    )
+                correlation_block = (
+                    "\n**🔗 Correlated Exposure (informational only, not a rule):** "
+                    f"You already have open position(s) on other symbols that tend to move "
+                    f"together with {symbol}:\n"
+                    + "\n".join(corr_lines)
+                    + "\n\nConsider whether a new position here would just duplicate/amplify "
+                    "risk you already carry via these correlated symbols, rather than being an "
+                    "independent bet. This is purely context - there is no hard rule against "
+                    "trading here; use your judgement.\n"
+                )
+            else:
+                correlation_block = ""
 
             if own_positions:
                 positions_block_lines = []
@@ -861,7 +932,7 @@ You are an expert trading advisor analyzing {symbol}.
 
 **Current Positions:**
 - Open Positions (all symbols): {len(positions)}
-{volatility_block}{news_block}{ml_block}
+{volatility_block}{news_block}{ml_block}{correlation_block}
 {own_positions_block}
 
 **Account Info:**
