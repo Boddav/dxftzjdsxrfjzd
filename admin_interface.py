@@ -6,6 +6,7 @@ Web-alapú adminisztrációs felület a trading bot kezeléséhez
 
 import os
 import json
+import time
 import asyncio
 import threading
 from datetime import datetime
@@ -124,8 +125,33 @@ def index():
 
 @app.route('/api/status')
 def api_status():
-    """Bot státusz API endpoint"""
-    return jsonify(bot_status)
+    """
+    Bot státusz API endpoint.
+
+    A bot_status dict-ben tárolt 'positions'/'pnl_today' sosem frissül
+    (csak indításkor íródik, üresen/0-ra) - ezért a felső "Aktív Pozíciók"
+    és "Mai P&L" kártyák mindig 0-t mutattak, míg az alsó táblázat (amit az
+    /api/positions külön, valós lekéréssel tölt fel) helyesen jelent meg.
+    Itt is a valós, élő pozíciókat kérjük le, és abból számoljuk a
+    darabszámot és a nyitott pozíciók összesített (nem realizált) P&L-jét.
+    """
+    status = dict(bot_status)
+    try:
+        if os.path.exists('credentials.json'):
+            positions = _get_real_positions_cached()
+            status['positions'] = positions
+            status['open_positions_count'] = len(positions)
+            # Ez a nyitott pozíciók össz. NEM realizált P&L-je (nem a nap
+            # folyamán lezárt/realizált eredmény) - a mezőnevet a frontend
+            # kompatibilitása miatt tartjuk 'pnl_today'-nak, de valójában
+            # "nyitott pozíciók aktuális P&L-je".
+            status['pnl_today'] = round(sum(p.get('pnl') or 0 for p in positions), 2)
+        else:
+            status['open_positions_count'] = len(status.get('positions') or [])
+    except Exception as e:
+        logger.error(f"Státusz - pozíciók lekérési hiba: {e}")
+        status['open_positions_count'] = len(status.get('positions') or [])
+    return jsonify(status)
 
 
 def _start_bot_internal(persist_state=True, symbols=None):
@@ -255,6 +281,11 @@ def _run_async(coro):
         loop.close()
 
 
+_positions_cache = {'ts': 0.0, 'data': None}
+_POSITIONS_CACHE_TTL = 3.0  # mp - lásd lent, miért kell
+_positions_cache_lock = threading.Lock()
+
+
 async def _fetch_real_positions(server):
     await server.get_symbols_list()  # symbolId -> symbolName cache feltöltése
     raw_positions = await server.get_positions()
@@ -319,13 +350,41 @@ async def _fetch_real_positions(server):
     return positions
 
 
+def _get_real_positions_cached():
+    """
+    Rövid (3s) TTL cache a valós pozíciók köré.
+
+    A dashboard 15s-enként külön hívja az /api/status-t és az /api/positions-t
+    - mindkettő ugyanazt a (viszonylag drága, szimbólumonkénti élő
+    árfolyamot is lekérő) _fetch_real_positions-t futtatná, egymás után,
+    duplán terhelve a megosztott cTrader kapcsolatot (és a run_shared lock
+    miatt egymásra is várva). A rövid cache-eléssel a két, egy időben
+    érkező kérés valójában egyetlen valós lekérést eredményez.
+    """
+    with _positions_cache_lock:
+        now = time.monotonic()
+        if _positions_cache['data'] is not None and (now - _positions_cache['ts']) < _POSITIONS_CACHE_TTL:
+            return _positions_cache['data']
+        # A lock birtokában futtatjuk a valós lekérést is (nem csak a
+        # cache-ellenőrzést) - így két egyidejű kérés nem tud egyszerre
+        # "cache-t elszalasztani" és mindkettő valós fetch-et indítani; a
+        # második kérés megvárja az elsőt, majd a most frissült cache-t
+        # kapja, nem egy második, felesleges valós hívást indít.
+        # Az időbélyeget a sikeres fetch UTÁN írjuk, hogy a teljes 3s TTL
+        # a lekérés befejezésétől számítson, ne a megkezdésétől.
+        positions = run_shared(_fetch_real_positions)
+        _positions_cache['data'] = positions
+        _positions_cache['ts'] = time.monotonic()
+        return positions
+
+
 @app.route('/api/positions')
 def api_positions():
     """Aktuális pozíciók lekérése a valós cTrader demo számláról"""
     try:
         if not os.path.exists('credentials.json'):
             return jsonify({'success': False, 'message': 'Nincs cTrader azonosítás (lásd Azonosítás gomb)'})
-        positions = run_shared(_fetch_real_positions)
+        positions = _get_real_positions_cached()
         return jsonify({'success': True, 'positions': positions})
     except Exception as e:
         logger.error(f"Pozíciók lekérési hiba: {e}")
