@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML &amp; Backtest - AI Trading Advisor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">🤖 AI Trading Advisor</div>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/config">Beállítások</a>
+            <a href="/logs">Naplók</a>
+            <a href="/arbitrage">Arbitrázs</a>
+            <a href="/analytics" class="active">ML &amp; Backtest</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>ML szignál minőség &amp; Backtesting</h1>
+        </div>
+
+        <div class="warn-banner">
+            ⚠️ A backteszt NEM tartalmazza a Claude AI döntéshozót - csak a technikai szabály +
+            ML szignál determinisztikus közelítését szimulálja, spread/csúszás nélkül. Az élő
+            eredmény ettől eltérhet, tájékoztató jellegű.
+        </div>
+
+        <div id="analyticsMessage"></div>
+
+        <div class="section">
+            <h2>Élő ML szignál-minőség</h2>
+            <p class="sub-text">Minden ML predikciót elmentünk, majd LOOKAHEAD gyertyával később visszamérjük, bejött-e az irány. Ez a tényleges, élesben kiadott jelzések pontossága.</p>
+            <div class="form-group" style="display:flex; gap:10px; align-items:flex-end; max-width:420px;">
+                <div style="flex:1">
+                    <label for="mlQualitySymbol">Szimbólum (üres = összes)</label>
+                    <input type="text" id="mlQualitySymbol" class="form-control" placeholder="pl. EURUSD">
+                </div>
+                <button class="btn btn-primary" onclick="loadMlQuality()">🔄 Frissítés</button>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Feloldott predikciók</div>
+                    <div class="stat-value" id="mlResolvedCount">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Irány-pontosság (összes)</div>
+                    <div class="stat-value" id="mlAccuracy">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Irány-pontosság (legutóbbi)</div>
+                    <div class="stat-value" id="mlRecentAccuracy">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Függőben lévő predikciók</div>
+                    <div class="stat-value" id="mlPendingCount">-</div>
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Szimbólum</th><th>Feloldva</th><th>Pontosság (összes)</th><th>Pontosság (legutóbbi)</th></tr></thead>
+                    <tbody id="mlBySymbolTableBody"><tr><td colspan="4" class="no-data">Nincs adat</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Historikus kiértékelés (train/test)</h2>
+            <p class="sub-text">A modellt csak a gyertyák korábbi részén tanítjuk, és a kihagyott, később következő részen mérjük a pontosságot - ez egy izolált mérés, nem szennyezi az élő modellt.</p>
+            <div class="form-group" style="display:flex; gap:10px; align-items:flex-end; max-width:520px;">
+                <div style="flex:1">
+                    <label for="histSymbol">Szimbólum</label>
+                    <input type="text" id="histSymbol" class="form-control" value="XAUUSD">
+                </div>
+                <div style="flex:1">
+                    <label for="histCount">Gyertyaszám (100-1000)</label>
+                    <input type="number" id="histCount" class="form-control" value="500" min="100" max="1000">
+                </div>
+                <button class="btn btn-primary" onclick="runHistoricalEval()">▶ Kiértékelés</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Train / Test gyertyák</th><th>Pontosság</th><th>Precision</th><th>Recall</th><th>F1</th><th>Alap (mindig "up") arány</th></tr></thead>
+                    <tbody id="histResultTableBody"><tr><td colspan="6" class="no-data">Még nem futott</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Backtesting</h2>
+            <p class="sub-text">Historikus gyertyák lekérése cTraderből, majd a technikai szabály + ML szignál stratégia szimulálása, fix stop-loss/take-profit pip-távolsággal.</p>
+            <div class="form-group" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+                <div>
+                    <label for="btSymbol">Szimbólum</label>
+                    <input type="text" id="btSymbol" class="form-control" value="XAUUSD">
+                </div>
+                <div>
+                    <label for="btTimeframe">Idősík</label>
+                    <select id="btTimeframe" class="form-control">
+                        <option value="M5" selected>M5</option>
+                        <option value="M15">M15</option>
+                        <option value="M30">M30</option>
+                        <option value="H1">H1</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="btCount">Gyertyaszám (100-1000)</label>
+                    <input type="number" id="btCount" class="form-control" value="500" min="100" max="1000">
+                </div>
+                <div>
+                    <label for="btSl">Stop-loss (pip)</label>
+                    <input type="number" id="btSl" class="form-control" value="20" min="5" max="500">
+                </div>
+                <div>
+                    <label for="btTp">Take-profit (pip)</label>
+                    <input type="number" id="btTp" class="form-control" value="40" min="5" max="500">
+                </div>
+                <button class="btn btn-success" id="btRunBtn" onclick="runBacktest()">▶ Backtest futtatása</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Kereskedések</div>
+                    <div class="stat-value" id="btTrades">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Nyerési arány</div>
+                    <div class="stat-value" id="btWinRate">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Összesített P&amp;L (pip)</div>
+                    <div class="stat-value" id="btPnl">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Profit factor</div>
+                    <div class="stat-value" id="btProfitFactor">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Max drawdown (pip)</div>
+                    <div class="stat-value" id="btDrawdown">-</div>
+                </div>
+            </div>
+
+            <canvas id="btEquityCanvas" width="1000" height="220" style="width:100%; max-width:100%; background:#0d1117; border-radius:8px;"></canvas>
+
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Irány</th><th>Belépés</th><th>Kilépés</th><th>Ok</th><th>P&amp;L (pip)</th></tr></thead>
+                    <tbody id="btTradesTableBody"><tr><td colspan="5" class="no-data">Még nem futott</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+</body>
+</html>

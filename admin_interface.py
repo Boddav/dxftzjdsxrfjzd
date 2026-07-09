@@ -5,6 +5,7 @@ Web-alapú adminisztrációs felület a trading bot kezeléséhez
 """
 
 import os
+import re
 import json
 import math
 import time
@@ -22,9 +23,14 @@ from typing import Optional
 
 # Saját modulok
 from ai_trading_advisor import AITradingAdvisor
+from ml_predictor import MLPredictor
+import backtest_engine
 from mcp_server import CTraderMCPServer
 from mcp_connection_manager import run_shared
 import arbitrage_engine
+
+VALID_TIMEFRAMES = {'M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN1'}
+SYMBOL_PATTERN = re.compile(r'^[A-Z0-9._]{2,20}$')
 
 load_dotenv()
 
@@ -690,6 +696,149 @@ def logs_page():
 def arbitrage_page():
     """Bróker közötti árarbitrázs (demo, kísérleti) oldal"""
     return render_template('arbitrage.html')
+
+
+@app.route('/analytics')
+def analytics_page():
+    """ML szignál minőség + Backtesting oldal"""
+    return render_template('analytics.html')
+
+
+@app.route('/api/ml-quality')
+def api_ml_quality():
+    """
+    Élő ML szignál-minőség (a ténylegesen kiadott predikciók utólagos
+    kiértékelése), és opcionálisan (ha ?historical=1) egy izolált,
+    train/test-alapú historikus kiértékelés is egy adott szimbólumra.
+    """
+    try:
+        # Friss MLPredictor példány - az __init__ a lemezen (ml_quality_log.json)
+        # tárolt élő nyomkövetési adatokat tölti be, nem függ attól, fut-e
+        # éppen a bot (bot_instance lehet None, ha le van állítva).
+        predictor = MLPredictor()
+        symbol = request.args.get('symbol') or None
+        if symbol:
+            symbol = symbol.strip().upper()
+            if not SYMBOL_PATTERN.match(symbol):
+                return jsonify({'success': False, 'message': 'Érvénytelen szimbólum formátum.'}), 400
+        stats = predictor.get_quality_stats(symbol=symbol)
+
+        result = {'success': True, 'live': stats}
+
+        if request.args.get('historical') == '1':
+            hist_symbol = symbol or 'XAUUSD'
+            timeframe = request.args.get('timeframe', 'M5').strip().upper()
+            if timeframe not in VALID_TIMEFRAMES:
+                return jsonify({'success': False, 'message': f'Érvénytelen idősík. Választható: {", ".join(sorted(VALID_TIMEFRAMES))}'}), 400
+            try:
+                count = int(request.args.get('count', 500))
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Érvénytelen gyertyaszám.'}), 400
+            count = min(max(count, 100), 1000)
+
+            async def _fetch(server):
+                return await server.get_candles(hist_symbol, timeframe=timeframe, count=count)
+
+            candles = run_shared(_fetch)
+            if not candles:
+                return jsonify({'success': False, 'message': 'Nem sikerült historikus gyertyát lekérni.'}), 502
+
+            historical = predictor.evaluate_historical(hist_symbol, candles)
+            if historical is None:
+                return jsonify({'success': False, 'message': 'Túl kevés adat a historikus kiértékeléshez.'}), 400
+            result['historical'] = historical
+
+        return jsonify(result)
+    except TimeoutError as e:
+        return jsonify({'success': False, 'message': str(e)}), 504
+    except Exception as e:
+        logger.error(f"❌ ML minőség lekérdezési hiba: {e}")
+        return jsonify({'success': False, 'message': f'Hiba: {e}'}), 500
+
+
+_backtest_results_lock = threading.Lock()
+BACKTEST_RESULTS_FILE = 'backtest_results.json'
+
+
+def _load_backtest_results() -> dict:
+    if not os.path.exists(BACKTEST_RESULTS_FILE):
+        return {}
+    try:
+        with open(BACKTEST_RESULTS_FILE, 'r') as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_backtest_result(symbol: str, result: dict) -> None:
+    with _backtest_results_lock:
+        all_results = _load_backtest_results()
+        all_results[symbol] = result
+        tmp_path = f"{BACKTEST_RESULTS_FILE}.tmp-{uuid.uuid4().hex}"
+        with open(tmp_path, 'w') as f:
+            json.dump(all_results, f, indent=2)
+        os.replace(tmp_path, BACKTEST_RESULTS_FILE)
+
+
+@app.route('/api/backtest/results')
+def api_backtest_results():
+    """A korábban lefuttatott backtesztek gyorsítótárazott eredményei
+    (szimbólumonként az utolsó futás), hogy az oldal újratöltésekor ne
+    kelljen azonnal újra lefuttatni."""
+    with _backtest_results_lock:
+        return jsonify({'success': True, 'results': _load_backtest_results()})
+
+
+@app.route('/api/backtest/run', methods=['POST'])
+def api_backtest_run():
+    """
+    Backtest lefuttatása egy szimbólumra: historikus gyertyák lekérése
+    cTraderből, majd a determinisztikus (technikai szabály + ML szignál)
+    stratégia szimulálása - lásd backtest_engine.py a pontos korlátokért
+    (nincs Claude, nincs spread/csúszás-szimuláció).
+    """
+    try:
+        data = request.json or {}
+        symbol = str(data.get('symbol', '')).strip().upper()
+        if not symbol or not SYMBOL_PATTERN.match(symbol):
+            return jsonify({'success': False, 'message': 'Érvényes szimbólum megadása kötelező.'}), 400
+
+        timeframe = str(data.get('timeframe', 'M5')).strip().upper()
+        if timeframe not in VALID_TIMEFRAMES:
+            return jsonify({'success': False, 'message': f'Érvénytelen idősík. Választható: {", ".join(sorted(VALID_TIMEFRAMES))}'}), 400
+        try:
+            count = int(data.get('candle_count', 500))
+            stop_loss_pips = float(data.get('stop_loss_pips', backtest_engine.DEFAULT_STOP_LOSS_PIPS))
+            take_profit_pips = float(data.get('take_profit_pips', backtest_engine.DEFAULT_TAKE_PROFIT_PIPS))
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'message': 'Érvénytelen numerikus paraméter.'}), 400
+
+        if not (100 <= count <= 1000):
+            return jsonify({'success': False, 'message': 'A gyertyaszám 100 és 1000 között lehet.'}), 400
+        if not (5 <= stop_loss_pips <= 500) or not (5 <= take_profit_pips <= 500):
+            return jsonify({'success': False, 'message': 'A stop-loss/take-profit 5 és 500 pip között lehet.'}), 400
+
+        async def _fetch(server):
+            return await server.get_candles(symbol, timeframe=timeframe, count=count)
+
+        candles = run_shared(_fetch)
+        if not candles:
+            return jsonify({'success': False, 'message': 'Nem sikerült historikus gyertyát lekérni ehhez a szimbólumhoz.'}), 502
+
+        result = backtest_engine.run_backtest(
+            symbol, candles,
+            stop_loss_pips=stop_loss_pips,
+            take_profit_pips=take_profit_pips,
+        )
+        _save_backtest_result(symbol, result)
+        return jsonify({'success': True, 'result': result})
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except TimeoutError as e:
+        return jsonify({'success': False, 'message': str(e)}), 504
+    except Exception as e:
+        logger.error(f"❌ Backtest hiba: {e}")
+        return jsonify({'success': False, 'message': f'Hiba: {e}'}), 500
 
 
 @app.route('/api/arbitrage/status')
