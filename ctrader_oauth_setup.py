@@ -300,8 +300,11 @@ class OAuthHandler(BaseHTTPRequestHandler):
             response.raise_for_status()
 
             token_response = response.json()
-            OAuthHandler.access_token = token_response['access_token']
-            OAuthHandler.refresh_token = token_response['refresh_token']
+            # A cTrader camelCase (accessToken) VAGY snake_case (access_token) kulcsot is adhat
+            OAuthHandler.access_token = token_response.get('accessToken') or token_response.get('access_token')
+            OAuthHandler.refresh_token = token_response.get('refreshToken') or token_response.get('refresh_token')
+            if not OAuthHandler.access_token:
+                raise ValueError(f"cTrader hibaválasz (nincs access token): {token_response}")
 
             logger.info("✅ Access token kapva!")
 
@@ -327,17 +330,20 @@ class OAuthHandler(BaseHTTPRequestHandler):
             response = requests.get(ACCOUNTS_URL, headers=headers)
             response.raise_for_status()
 
-            accounts = response.json()
+            acc_json = response.json()
+            # A cTrader a listát {"data": [...]} alá csomagolhatja
+            accounts = acc_json.get('data', acc_json) if isinstance(acc_json, dict) else acc_json
             if accounts and len(accounts) > 0:
                 # Első demo account használata
                 for account in accounts:
                     if account.get('live') == False:  # Demo account
-                        OAuthHandler.account_id = account['accountId']
+                        OAuthHandler.account_id = account.get('accountId') or account.get('ctidTraderAccountId')
                         logger.info(f"✅ Demo Account ID: {OAuthHandler.account_id}")
                         return
 
                 # Ha nincs demo, akkor az első live account
-                OAuthHandler.account_id = accounts[0]['accountId']
+                first = accounts[0]
+                OAuthHandler.account_id = first.get('accountId') or first.get('ctidTraderAccountId')
                 logger.info(f"⚠️ Live Account ID: {OAuthHandler.account_id}")
             else:
                 logger.warning("⚠️ Nem található trading account")

@@ -455,15 +455,26 @@ def api_logs():
 #     pass
 
 
-OAUTH_REDIRECT_URI_LOCALHOST = "http://localhost:8080/callback"
-
-
 def _get_redirect_uri():
-    """Visszaadja a helyes redirect URI-t (Replit vagy localhost)."""
+    """Visszaadja a helyes redirect URI-t (Replit, GitHub Codespaces vagy localhost).
+
+    A callback route az admin felület portján (ADMIN_PORT, alap: 5000) fut.
+    """
+    port = os.getenv('ADMIN_PORT', '5000')
+
+    # Replit környezet
     replit_domain = os.getenv('REPLIT_DEV_DOMAIN', '')
     if replit_domain:
         return f"https://{replit_domain}/callback"
-    return OAUTH_REDIRECT_URI_LOCALHOST
+
+    # GitHub Codespaces környezet (pl. https://<name>-5000.app.github.dev/callback)
+    codespace_name = os.getenv('CODESPACE_NAME', '')
+    gh_domain = os.getenv('GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN', '')
+    if codespace_name and gh_domain:
+        return f"https://{codespace_name}-{port}.{gh_domain}/callback"
+
+    # Helyi fejlesztés
+    return f"http://localhost:{port}/callback"
 
 
 def _exchange_code_for_tokens(code, redirect_uri=None):
@@ -483,10 +494,11 @@ def _exchange_code_for_tokens(code, redirect_uri=None):
     logger.info(f"cTrader token válasz [{resp.status_code}]: {resp.text}")
     resp.raise_for_status()
     tokens = resp.json()
-    if 'access_token' not in tokens:
-        raise ValueError(f"cTrader hibaválasz: {tokens}")
-    access_token = tokens['access_token']
-    refresh_token = tokens['refresh_token']
+    # A cTrader camelCase (accessToken) VAGY snake_case (access_token) kulcsot is adhat
+    access_token = tokens.get('accessToken') or tokens.get('access_token')
+    refresh_token = tokens.get('refreshToken') or tokens.get('refresh_token')
+    if not access_token:
+        raise ValueError(f"cTrader hibaválasz (nincs access token): {tokens}")
     logger.info("✅ cTrader access token kapva")
 
     # Account ID lekérése
@@ -495,14 +507,17 @@ def _exchange_code_for_tokens(code, redirect_uri=None):
         acc_resp = http_requests.get('https://openapi.ctrader.com/apps/accounts',
                                      headers={'Authorization': f'Bearer {access_token}'})
         acc_resp.raise_for_status()
-        accounts = acc_resp.json()
+        acc_json = acc_resp.json()
+        # A cTrader a listát {"data": [...]} alá csomagolhatja
+        accounts = acc_json.get('data', acc_json) if isinstance(acc_json, dict) else acc_json
         if accounts:
             for acc in accounts:
                 if not acc.get('live', True):
-                    account_id = str(acc['accountId'])
+                    account_id = str(acc.get('accountId') or acc.get('ctidTraderAccountId'))
                     break
-            if not account_id and accounts:
-                account_id = str(accounts[0]['accountId'])
+            if not account_id:
+                first = accounts[0]
+                account_id = str(first.get('accountId') or first.get('ctidTraderAccountId'))
     except Exception as e:
         logger.warning(f"Account lekérés sikertelen, manuális ID-t használ: {e}")
 
@@ -596,8 +611,8 @@ form input:focus{{border-color:#667eea}}
   <div class="num">1</div>
   <div class="step-body">
     <strong>Regisztráld ezt az URI-t a Spotware panelen</strong>
-    <p>Menj a <a href="https://openapi.ctrader.com/" target="_blank">openapi.ctrader.com</a> oldalra → alkalmazásod → Redirect URIs → add hozzá:</p>
-    <div class="code-box">{OAUTH_REDIRECT_URI_LOCALHOST}</div>
+    <p>Menj a <a href="https://openapi.ctrader.com/" target="_blank">openapi.ctrader.com</a> oldalra → alkalmazásod → Redirect URIs → add hozzá <em>pontosan</em> ezt:</p>
+    <div class="code-box">{redirect_uri}</div>
   </div>
 </div>
 
@@ -613,9 +628,9 @@ form input:focus{{border-color:#667eea}}
 <div class="step">
   <div class="num">3</div>
   <div class="step-body">
-    <strong>Másold ki a kódot az URL-ből</strong>
-    <p>Az engedélyezés után a böngésző egy <em>nem elérhető</em> oldalra irányít (<code>localhost:8080</code>). Ez normális! Az URL-sávban látod a kódot:</p>
-    <div class="code-box">http://localhost:8080/callback?<strong>code=ABC123...</strong></div>
+    <strong>Engedélyezés után</strong>
+    <p>A cTrader visszairányít ide: <code>{redirect_uri}</code>. Ha automatikusan a Dashboardra jutsz, kész vagy — nincs több teendő. Ha viszont egy kódot látsz az URL-ben, másold ki:</p>
+    <div class="code-box">{redirect_uri}?<strong>code=ABC123...</strong></div>
     <div class="warn">📋 Másold ki csak a <strong>code=</strong> utáni részt (pl. <code>ABC123...</code>)</div>
   </div>
 </div>
