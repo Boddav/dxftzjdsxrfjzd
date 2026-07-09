@@ -1,3 +1,5 @@
 - [cTrader Open API JSON gateway quirks](ctrader-json-gateway.md) — undocumented protocol details for wss://demo.ctraderapi.com:5036 JSON (non-protobuf) gateway.
 - [Flask bot in-memory state and restarts](flask-bot-restart-persistence.md) — bot run/stop state must be persisted to disk and resumed on startup, or workflow restarts silently kill trading.
 - [Rendering raw LLM text in a dashboard](llm-text-rendering-safety.md) — never inject AI-generated text via innerHTML; use textContent, and write shared JSON state files atomically.
+- [Shared MCP connection manager](flask-bot-restart-persistence.md) — singleton background-loop cTrader connection for admin API routes; retry-scope and timeout-cancellation rules to preserve.
+- [Risk-based position sizing must be margin-aware](position-sizing-margin.md) — risk % alone isn't enough; cap lot size by available margin/leverage too, or high-notional symbols get rejected.

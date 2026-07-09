@@ -128,16 +128,49 @@ class TechnicalIndicators:
 class RiskManager:
     """Kockázatkezelési szabályok"""
 
-    def __init__(self, max_risk_per_trade: float = 0.02, max_open_positions: int = 3):
+    # Feltételezett tőkeáttétel (a cTrader Open API nem adja vissza a
+    # symbol/account leverage-et a ProtoOATrader vagy ProtoOASymbol
+    # üzenetekben, amikhez itt hozzáférünk), konfigurálható env változóval.
+    DEFAULT_LEVERAGE = 100
+
+    # A margin-alapú korlátnál csak a szabad egyenleg ekkora hányadát
+    # engedjük egyetlen pozíció fedezetére fordítani, hogy maradjon puffer
+    # árfolyamingadozásra és a többi nyitott pozícióra.
+    MARGIN_SAFETY_FACTOR = 0.5
+
+    # Kemény felső korlát a per-trade kockázatra, függetlenül a
+    # MAX_RISK_PER_TRADE konfigurációtól - ez korábban hardkódolt 0.02 miatt
+    # némán ignorálva volt, így egy elfelejtett/hibás config érték (pl. 0.2 =
+    # 20%) most, hogy tényleg érvényesül, váratlanul túl nagy pozíciót
+    # eredményezhetne. Ha valaki tudatosan nagyobb kockázatot akar, ezt a
+    # konstanst kell módosítania a kódban, nem elég a configot beállítani.
+    HARD_MAX_RISK_PER_TRADE = 0.05
+
+    def __init__(self, max_risk_per_trade: Optional[float] = None, max_open_positions: Optional[int] = None):
         """
         Inicializálás
 
         Args:
-            max_risk_per_trade: Maximum kockázat per trade (pl. 0.02 = 2%)
-            max_open_positions: Maximum nyitott pozíciók száma
+            max_risk_per_trade: Maximum kockázat per trade (pl. 0.02 = 2%).
+                Ha None, a MAX_RISK_PER_TRADE env változóból olvassa (alap: 0.02).
+            max_open_positions: Maximum nyitott pozíciók száma.
+                Ha None, a MAX_OPEN_POSITIONS env változóból olvassa (alap: 3).
         """
+        if max_risk_per_trade is None:
+            max_risk_per_trade = float(os.getenv('MAX_RISK_PER_TRADE', '0.02'))
+        if max_open_positions is None:
+            max_open_positions = int(os.getenv('MAX_OPEN_POSITIONS', '3'))
+
+        if max_risk_per_trade > self.HARD_MAX_RISK_PER_TRADE:
+            logger.warning(
+                f"⚠️ MAX_RISK_PER_TRADE ({max_risk_per_trade:.2%}) túllépi a biztonsági "
+                f"felső korlátot ({self.HARD_MAX_RISK_PER_TRADE:.2%}), levágva."
+            )
+            max_risk_per_trade = self.HARD_MAX_RISK_PER_TRADE
+
         self.max_risk_per_trade = max_risk_per_trade
         self.max_open_positions = max_open_positions
+        self.leverage = float(os.getenv('CTRADER_LEVERAGE', str(self.DEFAULT_LEVERAGE)))
 
     @staticmethod
     def _contract_size(symbol: str) -> float:
@@ -160,12 +193,38 @@ class RiskManager:
             return 1.0  # 1 lot kripto = 1 egység
         return 100000.0  # sztenderd forex párok
 
+    def estimate_used_margin(self, positions: List[Dict]) -> float:
+        """
+        Nyitott pozíciók fedezetigényének becslése (a fedezet-alapú
+        méretezéshez), hogy egy új pozíció ne hagyja figyelmen kívül a már
+        elkötelezett fedezetet.
+
+        Args:
+            positions: lista, minden elem 'symbol' (str), 'entry_price'
+                (float) és 'lots' (float, LOT egységben, nem raw
+                mikroegységben) kulcsokkal - a hívó felelőssége a
+                get_positions() nyers ('symbol_id', 'volume' raw
+                mikroegység) alakból ide konvertálni.
+
+        Returns:
+            float: becsült összesen lekötött fedezet dollárban
+        """
+        total = 0.0
+        for p in positions or []:
+            contract_size = self._contract_size(p.get('symbol') or '')
+            entry_price = p.get('entry_price') or 0
+            lots = p.get('lots') or 0
+            notional = entry_price * contract_size * lots
+            total += notional / self.leverage if self.leverage > 0 else notional
+        return total
+
     def calculate_position_size(
         self,
         account_balance: float,
         entry_price: float,
         stop_loss: float,
-        symbol: str = "XAUUSD"
+        symbol: str = "XAUUSD",
+        used_margin: float = 0.0
     ) -> int:
         """
         Pozíció méret számítása kockázat alapján, szimbólumra szabott
@@ -176,9 +235,15 @@ class RiskManager:
             entry_price: Belépési ár
             stop_loss: Stop loss ár
             symbol: Trading szimbólum (a kontraktusméret meghatározásához)
+            used_margin: Már nyitott pozíciók által lekötött becsült fedezet
+                dollárban (lásd estimate_used_margin) - ez nélkül az új
+                pozíció mérete figyelmen kívül hagyná a már elkötelezett
+                fedezetet, és több nyitott pozíció esetén is NOT_ENOUGH_MONEY
+                hibát okozhatna.
 
         Returns:
-            int: Volumen mikroegységben
+            int: Volumen mikroegységben, vagy 0, ha még a bróker minimuma
+            (0.01 lot) sem fér bele biztonságosan a szabad fedezetbe.
         """
         # Maximum kockázat dollárban
         max_risk_amount = account_balance * self.max_risk_per_trade
@@ -186,20 +251,38 @@ class RiskManager:
         # Ár különbség (kockázat per egység)
         price_difference = abs(entry_price - stop_loss)
 
-        if price_difference == 0:
-            return 10000  # 0.01 lot alapértelmezett
-
         contract_size = self._contract_size(symbol)
 
-        # Lot méret számítása: mennyi lot mellett éri el a kockázat a max_risk_amount-ot
-        # dollár_kockázat_per_lot = price_difference * contract_size
-        lots = max_risk_amount / (price_difference * contract_size)
+        # A kockázat-alapú méretezés csak a stop loss távolságot ismeri, a
+        # tényleges fedezetigényt (ár * kontraktusméret / tőkeáttétel) nem -
+        # ez okozta, hogy pl. XAUUSD-nél (ahol 1 lot névértéke ~$400,000)
+        # a kiszámolt lotméret a rendelkezésre álló fedezet többszörösét
+        # igényelte, és NOT_ENOUGH_MONEY hibával elutasításra került, míg a
+        # Test gomb fix, kicsi (0.01 lot) mérete mindig belefért a fedezetbe.
+        # Itt korlátozzuk a lotméretet a becsült fedezetigény alapján is,
+        # a már nyitott pozíciók fedezetét is figyelembe véve.
+        notional_per_lot = entry_price * contract_size
+        margin_per_lot = notional_per_lot / self.leverage if self.leverage > 0 else notional_per_lot
+        free_margin_budget = max(account_balance * self.MARGIN_SAFETY_FACTOR - used_margin, 0)
+        margin_based_lots = free_margin_budget / margin_per_lot if margin_per_lot > 0 else 0
+
+        if price_difference == 0:
+            lots = margin_based_lots
+        else:
+            risk_based_lots = max_risk_amount / (price_difference * contract_size)
+            lots = min(risk_based_lots, margin_based_lots)
 
         # Mikroegységre konvertálás (100,000 mikroegység = 1 lot)
         volume_micro = int(lots * 100000)
 
-        # Minimum 0.01 lot (1000 mikroegység, mivel 1000/100000 = 0.01 lot)
-        return max(volume_micro, 1000)
+        # Ha a biztonságosan megengedett méret a bróker minimuma (0.01 lot =
+        # 1000 mikroegység) alatt van, NEM kényszerítjük fel odáig - az csak
+        # egy garantált NOT_ENOUGH_MONEY elutasítást okozna. Ehelyett 0-t
+        # adunk vissza, amit a hívó "nincs elég szabad fedezet, skip" jelzésként kezel.
+        if volume_micro < 1000:
+            return 0
+
+        return volume_micro
 
     def can_open_position(self, current_positions: int) -> bool:
         """
@@ -235,7 +318,7 @@ class AITradingAdvisor:
         """
         self.anthropic = Anthropic(api_key=anthropic_api_key)
         self.mcp_server = CTraderMCPServer()
-        self.risk_manager = RiskManager(max_risk_per_trade=0.02, max_open_positions=3)
+        self.risk_manager = RiskManager()
         self.running = False
         self.symbols = symbols or ["XAUUSD"]
         self.ai_decisions_file = 'ai_decisions.json'
@@ -607,13 +690,47 @@ Provide ONLY the JSON, no other text.
                 stop_loss = entry_price + stop_loss_distance
                 take_profit = entry_price - take_profit_distance
 
+            # Már nyitott pozíciók becsült fedezetigénye, hogy az új pozíció
+            # mérete ne hagyja figyelmen kívül a már elkötelezett fedezetet
+            # (több nyitott pozíció esetén ez nélkül is NOT_ENOUGH_MONEY
+            # eredményezhető, még ha egyenként belefértek is).
+            id_to_name = {
+                s.get('symbolId'): name for name, s in self.mcp_server.symbols_cache.items()
+            }
+            positions_for_margin = []
+            for p in positions:
+                resolved_name = id_to_name.get(p.get('symbol_id'))
+                if resolved_name is None:
+                    # Ismeretlen symbol_id (pl. symbols_cache még nem töltött be
+                    # egy adott szimbólumot) - NEM feltételezzük, hogy a most
+                    # kereskedett szimbólummal egyezik (ez XAU vs. forex esetén
+                    # nagyságrendekkel elszámolná a fedezetet), hanem a
+                    # legnagyobb ismert kontraktusméretet (XAU) használjuk
+                    # legrosszabb esetként, hogy inkább alul-, mint felül-
+                    # becsüljük a szabad fedezetet.
+                    resolved_name = 'XAUUSD'
+                positions_for_margin.append({
+                    'symbol': resolved_name,
+                    'entry_price': p.get('entry_price') or 0,
+                    'lots': (p.get('volume') or 0) / 10_000_000,
+                })
+            used_margin = self.risk_manager.estimate_used_margin(positions_for_margin)
+
             # Pozíció méret számítása
             volume = self.risk_manager.calculate_position_size(
                 account_balance=account_info['balance'],
                 entry_price=entry_price,
                 stop_loss=stop_loss,
-                symbol=symbol
+                symbol=symbol,
+                used_margin=used_margin
             )
+
+            if volume <= 0:
+                logger.warning(
+                    f"⚠️ [{symbol}] Nincs elég szabad fedezet egy új pozícióhoz "
+                    f"(lekötött fedezet: ${used_margin:.2f}), trade kihagyva"
+                )
+                return
 
             # Megbízás leadása (volume mikroegységben -> lot konverzió)
             # A kockázat-alapú méretezés nem ismeri a brókernél elérhető
