@@ -4,3 +4,4 @@
 - [Shared MCP connection manager](flask-bot-restart-persistence.md) — singleton background-loop cTrader connection for admin API routes; retry-scope and timeout-cancellation rules to preserve.
 - [Risk-based position sizing must be margin-aware](position-sizing-margin.md) — risk % alone isn't enough; cap lot size by available margin/leverage too, or high-notional symbols get rejected.
 - [MCP connection self-healing and dashboard polling load](mcp-reconnect-and-polling.md) — a keepalive drop doesn't reset the authenticated flag; check ws state too, reconnect immediately, and don't resubscribe spots every poll.
+- [AI-driven open-position management](ai-position-management.md) — Claude also manages already-open positions (HOLD/CLOSE/MOVE_SL) in the same API call as entry; safety rails for SL validation and ordering.

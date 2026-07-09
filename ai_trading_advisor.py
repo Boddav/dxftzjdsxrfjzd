@@ -442,17 +442,51 @@ class AITradingAdvisor:
             close_prices = [candle['close'] for candle in candles]
             analysis = self.technical_analysis(close_prices)
 
+            # 2b. Az ehhez a szimbólumhoz tartozó már nyitott pozíció(k)
+            # összegyűjtése, valós (szerver-oldali) unrealized P&L-lel - ez
+            # kell ahhoz, hogy az AI ne csak új pozíció nyitásáról döntsön,
+            # hanem a már futó pozíció kezeléséről (tartás/zárás/SL
+            # módosítás) is, ugyanabban a - drága - Claude hívásban, hogy
+            # az API-hívás tényleg mindkét döntést megérje.
+            id_to_name = {
+                s.get('symbolId'): name for name, s in self.mcp_server.symbols_cache.items()
+            }
+            own_positions = [
+                p for p in positions if id_to_name.get(p.get('symbol_id')) == symbol
+            ]
+            if own_positions:
+                try:
+                    pnl_by_position = await self.mcp_server.get_positions_unrealized_pnl()
+                except Exception as e:
+                    logger.warning(f"⚠️ [{symbol}] Unrealized PnL lekérési hiba a pozíció-menedzsmenthez: {e}")
+                    pnl_by_position = {}
+                for p in own_positions:
+                    server_pnl = pnl_by_position.get(p.get('position_id'))
+                    p['unrealized_pnl'] = server_pnl['net'] if server_pnl else None
+
             # 3. Claude AI konzultáció
             decision = await self.get_ai_decision(
                 symbol=symbol,
                 market_data=market_data,
                 analysis=analysis,
                 positions=positions,
-                account_info=account_info
+                account_info=account_info,
+                own_positions=own_positions
             )
 
             # 4. Trading döntés végrehajtása
             self._record_ai_decision(symbol, decision)
+
+            # 4a. ELŐSZÖR a már nyitott pozíció(k) kezelése (tartás/zárás/
+            # SL-módosítás), CSAK EZUTÁN az esetleges új belépés. Ez azért
+            # fontos, mert execute_trade() a max_open_positions korlátot a
+            # get_positions() FRISS állapotán ellenőrzi - ha az AI ugyanebben
+            # a körben zárni akarja a régi pozíciót és nyitni egy újat (pl.
+            # megfordult a jelzés), a zárásnak meg kell előznie az új
+            # megbízást, különben a régi pozíció feleslegesen blokkolja a
+            # limitet, és az új belépés csak a következő ciklusban futna le.
+            if own_positions:
+                await self._manage_open_positions(symbol, own_positions, decision.get('position_management'), market_data)
 
             if decision['action'] != 'HOLD':
                 await self.execute_trade(symbol, decision, market_data, account_info)
@@ -596,7 +630,8 @@ class AITradingAdvisor:
         market_data: Dict,
         analysis: Dict,
         positions: List,
-        account_info: Dict
+        account_info: Dict,
+        own_positions: Optional[List[Dict]] = None
     ) -> Dict[str, Any]:
         """
         Claude AI döntéskérés
@@ -605,13 +640,52 @@ class AITradingAdvisor:
             symbol: Trading szimbólum
             market_data: Piaci adatok
             analysis: Technikai analízis eredmények
-            positions: Jelenlegi pozíciók
+            positions: Jelenlegi pozíciók (az összes szimbólumon)
             account_info: Számla információk
+            own_positions: Az ehhez a szimbólumhoz tartozó már nyitott
+                pozíció(k), valós unrealized_pnl-lel kiegészítve - ha van
+                ilyen, az AI-t a pozíció kezeléséről (tartás/zárás/SL
+                módosítás) is megkérdezzük, ugyanabban a hívásban, mint az
+                új-pozíció döntést (nem duplázzuk az amúgy is drága Claude
+                hívások számát).
 
         Returns:
             Dict: Trading döntés
         """
         try:
+            own_positions = own_positions or []
+
+            if own_positions:
+                positions_block_lines = []
+                for p in own_positions:
+                    pnl = p.get('unrealized_pnl')
+                    pnl_text = f"${pnl:.2f}" if pnl is not None else "n/a"
+                    positions_block_lines.append(
+                        f"- Position ID {p.get('position_id')}: {p.get('side')} "
+                        f"{(p.get('volume') or 0) / 10_000_000:.2f} lots @ {p.get('entry_price')}, "
+                        f"unrealized P&L: {pnl_text}"
+                    )
+                own_positions_block = (
+                    "**Your Open Position(s) on " + symbol + ":**\n"
+                    + "\n".join(positions_block_lines)
+                    + "\n\nYou must ALSO decide how to manage this/these existing position(s) - "
+                    "not just whether to open a new one. Consider: is the original setup still "
+                    "valid given the current technicals, has the trend reversed, is there an "
+                    "unusually large/fast price move (possible news event) that warrants "
+                    "tightening the stop or closing early to protect profit, or should you let "
+                    "it run to the original target?"
+                )
+                position_management_schema = """,
+    "position_management": {
+        "action": "HOLD" or "CLOSE" or "MOVE_SL",
+        "position_id": the Position ID from the list above this decision applies to,
+        "new_stop_loss": new stop loss price (ONLY required if action is MOVE_SL, e.g. to move to break-even or trail behind price),
+        "reasoning": "why you chose this action for the existing position"
+    }"""
+            else:
+                own_positions_block = "**Your Open Position(s) on " + symbol + ":** none"
+                position_management_schema = ""
+
             # Prompt összeállítása
             prompt = f"""
 You are an expert trading advisor analyzing {symbol}.
@@ -633,7 +707,9 @@ You are an expert trading advisor analyzing {symbol}.
 - Trend: {analysis['trend']}
 
 **Current Positions:**
-- Open Positions: {len(positions)}
+- Open Positions (all symbols): {len(positions)}
+
+{own_positions_block}
 
 **Account Info:**
 - Balance: ${account_info.get('balance', 0):.2f}
@@ -651,8 +727,11 @@ Based on this analysis, provide your trading decision in this EXACT JSON format:
     "confidence": 0.0 to 1.0,
     "reasoning": "your detailed reasoning",
     "stop_loss_pips": number of pips for stop loss (e.g., 20),
-    "take_profit_pips": number of pips for take profit (e.g., 40)
+    "take_profit_pips": number of pips for take profit (e.g., 40){position_management_schema}
 }}
+
+"action"/"confidence"/"reasoning"/"stop_loss_pips"/"take_profit_pips" are about a POTENTIAL NEW position.
+{"Include \"position_management\" for the existing position(s) listed above." if own_positions else "Omit \"position_management\" entirely since there is no open position on this symbol."}
 
 Provide ONLY the JSON, no other text.
 """
@@ -682,8 +761,14 @@ Provide ONLY the JSON, no other text.
 
             decision = json.loads(decision_text)
 
-            logger.info(f"🤖 AI Döntés: {decision['action']} (confidence: {decision['confidence']:.2f})")
-            logger.info(f"💭 Indoklás: {decision['reasoning']}")
+            logger.info(f"🤖 AI Döntés: {decision.get('action')} (confidence: {decision.get('confidence', 0):.2f})")
+            logger.info(f"💭 Indoklás: {decision.get('reasoning', '')}")
+            pos_mgmt = decision.get('position_management')
+            if pos_mgmt:
+                logger.info(
+                    f"🛠️ [{symbol}] Pozíció-menedzsment döntés: {pos_mgmt.get('action')} "
+                    f"(id={pos_mgmt.get('position_id')}) - {pos_mgmt.get('reasoning', '')}"
+                )
 
             return decision
 
@@ -694,8 +779,153 @@ Provide ONLY the JSON, no other text.
                 'confidence': 0.0,
                 'reasoning': f'Error: {e}',
                 'stop_loss_pips': 0,
-                'take_profit_pips': 0
+                'take_profit_pips': 0,
+                'position_management': None
             }
+
+    async def _manage_open_positions(
+        self,
+        symbol: str,
+        own_positions: List[Dict],
+        position_management: Optional[Dict],
+        market_data: Dict
+    ):
+        """
+        A már nyitott pozíció(k) kezelése az AI döntése alapján: tartás,
+        zárás, vagy SL módosítás (pl. break-even-re húzás, trailing stop,
+        vagy védekező szűkítés hír/nagy mozgás esetén).
+
+        Ha az AI nem adott position_management-et (pl. hibás válasz, vagy
+        a régi promptformátum), HOLD-nak tekintjük - nem csinálunk semmit,
+        a pozíció változatlanul fut tovább a saját SL/TP-jével.
+        """
+        if not position_management:
+            return
+
+        action = (position_management.get('action') or 'HOLD').upper()
+        target_id = position_management.get('position_id')
+
+        # Ha az AI nem (vagy hibásan) adott meg position_id-t, és csak egy
+        # nyitott pozíció van ezen a szimbólumon, egyértelmű, melyikről van szó.
+        target_position = next(
+            (p for p in own_positions if p.get('position_id') == target_id),
+            own_positions[0] if len(own_positions) == 1 else None
+        )
+
+        if action == 'HOLD' or not target_position:
+            if action != 'HOLD':
+                logger.warning(
+                    f"⚠️ [{symbol}] Pozíció-menedzsment: '{action}' de nem található "
+                    f"egyértelmű pozíció (id={target_id}), kihagyva"
+                )
+            return
+
+        position_id = target_position.get('position_id')
+
+        if action == 'CLOSE':
+            result = await self.mcp_server.close_position(position_id)
+            if result.get('success'):
+                logger.info(f"✅ [{symbol}] Pozíció zárva AI döntés alapján (id={position_id})")
+                # Megjegyzés: a 'pnl' itt a zárás-kérés PILLANATA ELŐTTI
+                # szerver-oldali unrealized P&L (lásd _process_symbol), NEM
+                # a tényleges realizált P&L a zárási executiontől - a
+                # PROTO_OA_EXECUTION_EVENT válasz a close_position()-nél nem
+                # tartalmazza közvetlenül a realizált eredményt. Kis
+                # csúszástól eltekintve (a zárás közben eltelt pár száz ms
+                # alatti árváltozás) jó közelítés, de éles auditáláshoz a
+                # cTrader saját history/deal-lekérdezését kellene használni.
+                self._record_trade_history(
+                    symbol=symbol,
+                    action=target_position.get('side', ''),
+                    volume_lots=(target_position.get('volume') or 0) / 10_000_000,
+                    entry_price=target_position.get('entry_price', 0),
+                    status='AI által zárva',
+                    reasoning=position_management.get('reasoning', ''),
+                    pnl=target_position.get('unrealized_pnl')
+                )
+            else:
+                logger.error(f"❌ [{symbol}] Pozíció zárása sikertelen (id={position_id}): {result.get('error')}")
+
+        elif action == 'MOVE_SL':
+            new_stop_loss = position_management.get('new_stop_loss')
+            if not new_stop_loss:
+                logger.warning(f"⚠️ [{symbol}] MOVE_SL de nincs new_stop_loss megadva, kihagyva")
+                return
+
+            try:
+                new_stop_loss = float(new_stop_loss)
+            except (TypeError, ValueError):
+                logger.warning(f"⚠️ [{symbol}] MOVE_SL érvénytelen new_stop_loss ({new_stop_loss}), kihagyva")
+                return
+
+            # Biztonsági ellenőrzés, mielőtt bármit is elküldenénk a
+            # brókernek: az AI hibás/téves válasza NE tudjon a pozíció
+            # oldalával ellentétes (azonnal kiütő), vagy a jelenlegi
+            # védelemnél kockázatosabb (a meglévő SL-nél lazább) stopot
+            # beállítani. Csak a kockázatot CSÖKKENTŐ (szorosabb) módosítást
+            # engedünk át - ez lefedi a break-even-re húzást és a trailing
+            # stopot is, de kizárja a véletlen kockázat-növelést.
+            side = target_position.get('side')
+            current_price = market_data.get('bid') if side == 'SELL' else market_data.get('ask')
+            existing_sl = target_position.get('stop_loss')
+
+            # Fail-closed: ha nincs érvényes aktuális ár (pl. hibás/hiányos
+            # market_data), NEM küldjük el a módosítást találgatva - inkább
+            # kihagyjuk ebben a körben, mint hogy egy esetlegesen már
+            # kiütő/érvénytelen SL-t engedjünk át ellenőrzés nélkül.
+            if not current_price:
+                logger.warning(
+                    f"⚠️ [{symbol}] MOVE_SL elutasítva: nincs érvényes aktuális ár a biztonsági "
+                    f"ellenőrzéshez, kihagyva"
+                )
+                return
+
+            if side == 'BUY' and new_stop_loss >= current_price:
+                logger.warning(
+                    f"⚠️ [{symbol}] MOVE_SL elutasítva: BUY pozíciónál az új SL ({new_stop_loss}) "
+                    f"nem lehet az aktuális ár ({current_price}) felett, kihagyva"
+                )
+                return
+            if side == 'SELL' and new_stop_loss <= current_price:
+                logger.warning(
+                    f"⚠️ [{symbol}] MOVE_SL elutasítva: SELL pozíciónál az új SL ({new_stop_loss}) "
+                    f"nem lehet az aktuális ár ({current_price}) alatt, kihagyva"
+                )
+                return
+            if existing_sl:
+                if side == 'BUY' and new_stop_loss < existing_sl:
+                    logger.warning(
+                        f"⚠️ [{symbol}] MOVE_SL elutasítva: az új SL ({new_stop_loss}) lazább lenne, "
+                        f"mint a jelenlegi ({existing_sl}) - csak szorosabb SL engedélyezett, kihagyva"
+                    )
+                    return
+                if side == 'SELL' and new_stop_loss > existing_sl:
+                    logger.warning(
+                        f"⚠️ [{symbol}] MOVE_SL elutasítva: az új SL ({new_stop_loss}) lazább lenne, "
+                        f"mint a jelenlegi ({existing_sl}) - csak szorosabb SL engedélyezett, kihagyva"
+                    )
+                    return
+
+            try:
+                symbol_id = await self.mcp_server.get_symbol_id(symbol)
+                symbol_details = await self.mcp_server.get_symbol_details(symbol_id) if symbol_id else {}
+                digits = symbol_details.get('digits')
+            except Exception as e:
+                logger.warning(f"⚠️ [{symbol}] Symbol digits lekérési hiba SL módosításhoz: {e}")
+                digits = None
+
+            result = await self.mcp_server.amend_position_sltp(
+                position_id=position_id,
+                stop_loss=new_stop_loss,
+                symbol_digits=digits
+            )
+            if result.get('success'):
+                logger.info(f"✅ [{symbol}] SL módosítva AI döntés alapján (id={position_id}): {new_stop_loss}")
+            else:
+                logger.error(f"❌ [{symbol}] SL módosítás sikertelen (id={position_id}): {result.get('error')}")
+
+        else:
+            logger.warning(f"⚠️ [{symbol}] Ismeretlen position_management action: {action}")
 
     async def execute_trade(
         self,

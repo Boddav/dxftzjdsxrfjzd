@@ -60,6 +60,8 @@ class CTraderMCPServer:
     PROTO_OA_ERROR_RES = 2142
     PROTO_OA_GET_POSITION_UNREALIZED_PNL_REQ = 2187
     PROTO_OA_GET_POSITION_UNREALIZED_PNL_RES = 2188
+    PROTO_OA_AMEND_POSITION_SLTP_REQ = 2110
+    PROTO_OA_CLOSE_POSITION_REQ = 2111
 
     def __init__(self, credentials_path: str = "credentials.json"):
         """
@@ -462,6 +464,8 @@ class CTraderMCPServer:
                     'side': 'BUY' if trade_side in ('BUY', 1) else 'SELL',
                     'entry_price': pos.get('price', 0),
                     'current_price': pos.get('price', 0),
+                    'stop_loss': pos.get('stopLoss'),
+                    'take_profit': pos.get('takeProfit'),
                     'swap': pos.get('swap', 0) / 100,
                     'commission': pos.get('commission', 0) / 100,
                     'profit': 0,  # a nyitott pozíció valós P&L-jéhez élő árfolyam kell (get_market_data)
@@ -668,6 +672,125 @@ class CTraderMCPServer:
                 'error': str(e),
                 'symbol': symbol
             }
+
+    async def close_position(self, position_id: int, volume: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Nyitott pozíció (részleges vagy teljes) zárása.
+
+        Args:
+            position_id: A zárandó pozíció ID-je (get_positions()-ból)
+            volume: Zárandó volumen centiunitban (cTrader micro-lot skálázás,
+                lots * 10_000_000). None esetén a teljes pozíciót zárja -
+                ehhez a cTrader elfogadja, ha kihagyjuk a mezőt.
+
+        Returns:
+            Dict: {'success': bool, ...}
+        """
+        try:
+            if not self.authenticated:
+                await self.connect()
+
+            if self.is_live:
+                raise PermissionError(
+                    "Élő (live) számlán automatikus pozíciózárás le van tiltva biztonsági okból. "
+                    "Csak demo számlán engedélyezett."
+                )
+
+            payload = {
+                'ctidTraderAccountId': self.account_id,
+                'positionId': position_id,
+            }
+            if volume is not None:
+                payload['volume'] = int(volume)
+
+            response = await self._send_request(self.PROTO_OA_CLOSE_POSITION_REQ, payload)
+            payload_res = response.get('payload', {})
+            execution_type = payload_res.get('executionType')
+
+            # Ugyanaz a mintázat, mint place_order-nél: a válasz egy
+            # PROTO_OA_EXECUTION_EVENT, az executionType dönti el a sikert.
+            SUCCESS_EXECUTION_TYPES = {2, 3, 4, 11}  # ACCEPTED, FILLED, REPLACED, PARTIAL_FILL
+            if (response.get('payloadType') == self.PROTO_OA_EXECUTION_EVENT
+                    and execution_type in SUCCESS_EXECUTION_TYPES):
+                logger.info(f"✅ Pozíció zárva (id={position_id})")
+                return {'success': True, 'position_id': position_id}
+
+            raise Exception(
+                f"Pozíció zárási hiba: {payload_res.get('errorCode', payload_res.get('description', response))}"
+            )
+
+        except Exception as e:
+            logger.error(f"❌ Pozíció zárási hiba (id={position_id}): {e}")
+            return {'success': False, 'error': str(e), 'position_id': position_id}
+
+    async def amend_position_sltp(
+        self,
+        position_id: int,
+        stop_loss: Optional[float] = None,
+        take_profit: Optional[float] = None,
+        symbol_digits: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Nyitott pozíció SL/TP módosítása (pl. trailing stop, break-even-re
+        húzás, vagy a kockázat csökkentése hír/nagy mozgás előtt).
+
+        Args:
+            position_id: A módosítandó pozíció ID-je
+            stop_loss: Új stop loss ár (None = nem módosul)
+            take_profit: Új take profit ár (None = nem módosul)
+            symbol_digits: A szimbólum tizedesjegy-száma a kerekítéshez
+                (lásd place_order komment - lebegőpontos kerekítés nélkül
+                INVALID_REQUEST hibát ad a cTrader)
+
+        Returns:
+            Dict: {'success': bool, ...}
+        """
+        try:
+            if not self.authenticated:
+                await self.connect()
+
+            if self.is_live:
+                raise PermissionError(
+                    "Élő (live) számlán automatikus SL/TP módosítás le van tiltva biztonsági okból. "
+                    "Csak demo számlán engedélyezett."
+                )
+
+            if stop_loss is None and take_profit is None:
+                return {'success': False, 'error': 'Sem stop_loss, sem take_profit nincs megadva'}
+
+            digits = symbol_digits if symbol_digits is not None else 5
+            payload = {
+                'ctidTraderAccountId': self.account_id,
+                'positionId': position_id,
+            }
+            if stop_loss is not None:
+                payload['stopLoss'] = round(float(stop_loss), digits)
+            if take_profit is not None:
+                payload['takeProfit'] = round(float(take_profit), digits)
+
+            response = await self._send_request(self.PROTO_OA_AMEND_POSITION_SLTP_REQ, payload)
+            payload_res = response.get('payload', {})
+            execution_type = payload_res.get('executionType')
+
+            # SL/TP módosításnál (amend) a sikeres válasz executionType-ja
+            # ORDER_REPLACED (4) - "Pending order is changed with a new one"
+            # a cTrader dokumentáció szerint -, NEM ACCEPTED/FILLED, mivel
+            # technikailag a meglévő stop-védő megbízást cseréli le egy
+            # újra. Enélkül egy ténylegesen sikeres SL-módosítást is
+            # hibaként jelentettünk.
+            SUCCESS_EXECUTION_TYPES = {2, 3, 4, 11}
+            if (response.get('payloadType') == self.PROTO_OA_EXECUTION_EVENT
+                    and execution_type in SUCCESS_EXECUTION_TYPES):
+                logger.info(f"✅ SL/TP módosítva (id={position_id}): SL={stop_loss}, TP={take_profit}")
+                return {'success': True, 'position_id': position_id}
+
+            raise Exception(
+                f"SL/TP módosítási hiba: {payload_res.get('errorCode', payload_res.get('description', response))}"
+            )
+
+        except Exception as e:
+            logger.error(f"❌ SL/TP módosítási hiba (id={position_id}): {e}")
+            return {'success': False, 'error': str(e), 'position_id': position_id}
 
     async def get_candles(
         self,
