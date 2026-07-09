@@ -476,9 +476,28 @@ class CTraderMCPServer:
 
             payload = response.get('payload', {})
 
-            if response['payloadType'] == self.PROTO_OA_NEW_ORDER_REQ and 'order' in payload:
+            # A megbízás küldésére a válasz egy PROTO_OA_EXECUTION_EVENT (2126),
+            # NEM a kérés típusának visszhangja - executionType/orderStatus dönti el a sikert.
+            # ACCEPTED/FILLED/PARTIAL_FILL = siker, REJECTED/CANCELLED/EXPIRED = hiba.
+            execution_type = payload.get('executionType')
+            EXECUTION_STATUS_LABELS = {
+                2: 'accepted',       # ORDER_ACCEPTED - elfogadva, a tényleges fill egy külön (később érkező) event
+                3: 'filled',         # ORDER_FILLED
+                11: 'partial_fill',  # ORDER_PARTIAL_FILL
+            }
+            REJECTION_EXECUTION_TYPES = {
+                5: 'cancelled',        # ORDER_CANCELLED
+                6: 'expired',          # ORDER_EXPIRED
+                7: 'rejected',         # ORDER_REJECTED
+                8: 'cancel_rejected',  # ORDER_CANCEL_REJECTED
+            }
+
+            if (response['payloadType'] == self.PROTO_OA_EXECUTION_EVENT
+                    and execution_type in EXECUTION_STATUS_LABELS
+                    and 'order' in payload):
                 result = {
                     'success': True,
+                    'status': EXECUTION_STATUS_LABELS[execution_type],
                     'order_id': payload.get('order', {}).get('orderId'),
                     'position_id': payload.get('position', {}).get('positionId'),
                     'symbol': symbol,
@@ -487,10 +506,15 @@ class CTraderMCPServer:
                     'timestamp': datetime.now().isoformat()
                 }
 
-                logger.info(f"✅ Megbízás végrehajtva: {symbol} {side} {lots:.2f} lot (pozíció: {result['position_id']})")
+                logger.info(f"✅ Megbízás {result['status']}: {symbol} {side} {lots:.2f} lot (pozíció: {result['position_id']})")
                 return result
+            elif execution_type in REJECTION_EXECUTION_TYPES:
+                raise Exception(
+                    f"Megbízás elutasítva ({REJECTION_EXECUTION_TYPES[execution_type]}): "
+                    f"{payload.get('errorCode', payload.get('description', 'ismeretlen hiba'))}"
+                )
             else:
-                raise Exception(f"Execution hiba: {payload.get('description', response)}")
+                raise Exception(f"Execution hiba: {payload.get('errorCode', payload.get('description', response))}")
 
         except Exception as e:
             logger.error(f"❌ Place order hiba: {e}")

@@ -29,6 +29,9 @@ Once subscribed via `PROTO_OA_SUBSCRIBE_SPOTS_REQ`, the server pushes `ProtoOASp
 ## Trendbar (candle) OHLC is delta-encoded, not direct fields
 `ProtoOATrendbar` has fields `low`, `deltaOpen`, `deltaHigh`, `deltaClose` (all raw units, /100000 for real price) — there are no direct `open`/`high`/`close` fields. Real price = `(low + deltaX) / 100000`. `utcTimestampInMinutes` is UTC — convert with `datetime.utcfromtimestamp`, not local-time `fromtimestamp`, or candle timestamps drift on non-UTC hosts.
 
+## New-order response is a push event, not a request echo
+After `PROTO_OA_NEW_ORDER_REQ`, the reply is a `PROTO_OA_EXECUTION_EVENT` (2126), never an echo of the request's payloadType — checking `response.payloadType == PROTO_OA_NEW_ORDER_REQ` is always false and misreports every accepted order as a failure. Judge success/failure from `payload.executionType` instead (ORDER_ACCEPTED=2, FILLED=3, PARTIAL_FILL=11 succeed; CANCELLED=5, EXPIRED=6, REJECTED=7, CANCEL_REJECTED=8 fail), and read the real failure reason from `payload.errorCode` (e.g. `NOT_ENOUGH_MONEY`), not a generic message.
+
 ## Architectural caveat (not yet fixed)
 The request/response handling above is not concurrency-safe: two coroutines calling into the same `CTraderMCPServer` connection at once can steal each other's responses (`websockets` doesn't support concurrent `recv()`). Currently safe only because the bot's trading loop awaits everything sequentially in one coroutine chain — do not add parallel calls (e.g. concurrent per-symbol fetches) without first adding a single central reader task that dispatches by `clientMsgId`.
 
