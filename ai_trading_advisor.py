@@ -853,7 +853,7 @@ Provide ONLY the JSON, no other text.
             # "keepalive ping timeout" hibát okoz a cTrader kapcsolaton.
             response = await asyncio.to_thread(
                 self.anthropic.messages.create,
-                model="claude-opus-4-8",
+                model="claude-sonnet-4-5",
                 max_tokens=1024,
                 messages=[{
                     "role": "user",
