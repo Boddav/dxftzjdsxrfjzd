@@ -12,16 +12,13 @@ async function loadConfig() {
         const response = await fetch('/api/config');
         const config = await response.json();
 
-        document.getElementById('clientId').value = config.ctrader_client_id || '';
         document.getElementById('accountId').value = config.account_id || '';
         document.getElementById('maxPositions').value = config.max_positions || '3';
         document.getElementById('riskPerTrade').value = config.risk_per_trade || '1.0';
         document.getElementById('cycleInterval').value = config.cycle_interval || '60';
         document.getElementById('symbolDelay').value = config.symbol_delay || '15';
 
-        // Placeholder-ek az érzékeny adatokhoz
-        document.getElementById('clientSecret').placeholder = config.has_client_secret ?
-            '••••••••••••' : 'Nincs beállítva';
+        // Placeholder az érzékeny Anthropic kulcshoz
         document.getElementById('anthropicKey').placeholder = config.has_anthropic_key ?
             '••••••••••••' : 'Nincs beállítva';
 
@@ -128,8 +125,6 @@ async function saveConfig() {
     }
 
     const config = {
-        ctrader_client_id: document.getElementById('clientId').value,
-        ctrader_client_secret: document.getElementById('clientSecret').value,
         ctrader_account_id: document.getElementById('accountId').value,
         anthropic_api_key: document.getElementById('anthropicKey').value,
         max_positions: document.getElementById('maxPositions').value,

@@ -624,8 +624,6 @@ def api_config():
 
             # Mezők frissítése (üres értékeket nem írjuk felül)
             field_map = {
-                'ctrader_client_id':     'CTRADER_CLIENT_ID',
-                'ctrader_client_secret': 'CTRADER_CLIENT_SECRET',
                 'ctrader_account_id':    'CTRADER_ACCOUNT_ID',
                 'anthropic_api_key':     'ANTHROPIC_API_KEY',
                 'max_positions':         'MAX_OPEN_POSITIONS',
