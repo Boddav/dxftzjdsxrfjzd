@@ -37,3 +37,13 @@ The request/response handling above is not concurrency-safe: two coroutines call
 
 ## Resource management
 Each `CTraderMCPServer` instance holds one WebSocket; always call a `close()` on it after use (e.g. in a `finally` block) when opening a fresh connection per HTTP request, or connections/file descriptors leak under polling.
+
+## stopLoss/takeProfit are raw double prices, not scaled integers
+Unlike spot/tick prices (scaled by 1e5) and trendbar deltas, `ProtoOANewOrderReq.stopLoss`/`takeProfit` are protobuf `double` fields expecting the actual decimal price directly (e.g. `1.14489`), not `int(price * 100000)`. Sending the scaled integer causes `TRADING_BAD_STOPS` with a description comparing the real entry price against the huge scaled number. Also round to the symbol's `digits` (from `PROTO_OA_SYMBOL_BY_ID_REQ`, 2116) before sending — unrounded floats (e.g. `162.60399999999998` for a 3-digit JPY pair) cause `INVALID_REQUEST: Order price has more digits than symbol allows`.
+**Why:** this gateway is inconsistent about which numeric fields are scaled-int vs raw-double; don't assume one convention applies everywhere — check the protobuf field type (`cpp_type`) when in doubt.
+
+## Per-symbol volume bounds must be fetched, not assumed
+Don't assume every symbol allows a 0.01 lot minimum/step. Fetch `minVolume`/`maxVolume`/`stepVolume` per symbol via `PROTO_OA_SYMBOL_BY_ID_REQ` and clamp+round the computed order volume to them before sending, or risk-sized positions can fall outside the symbol's allowed range and get `TRADING_BAD_VOLUME`. After rounding to the nearest step, re-clamp to `[minVolume, maxVolume]` again — step-rounding (especially with Python's banker's rounding) can push the value back outside the bounds if `(max-min)` isn't a step multiple.
+
+## Blocking sync SDK calls inside an asyncio trading loop break the websocket
+Calling a synchronous SDK client (e.g. `Anthropic().messages.create(...)`) directly inside an `async def` starves the event loop for the call's full duration (several seconds). If a websocket connection with library-managed keepalive ping/pong is being awaited on the same loop, this manifests as recurring `sent 1011 (internal error) keepalive ping timeout` errors roughly once per cycle, self-healing via reconnect but disrupting timing. Fix: wrap the sync call in `await asyncio.to_thread(...)`.

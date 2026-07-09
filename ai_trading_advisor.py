@@ -435,8 +435,12 @@ Based on this analysis, provide your trading decision in this EXACT JSON format:
 Provide ONLY the JSON, no other text.
 """
 
-            # Claude API hívás
-            response = self.anthropic.messages.create(
+            # Claude API hívás - a szinkron Anthropic klienst külön szálon kell futtatni,
+            # különben blokkolja az asyncio event loop-ot a hívás teljes idejére (~5-10s),
+            # ami kiéhezteti a websocket kapcsolat keepalive ping/pong kezelését és
+            # "keepalive ping timeout" hibát okoz a cTrader kapcsolaton.
+            response = await asyncio.to_thread(
+                self.anthropic.messages.create,
                 model="claude-opus-4-8",
                 max_tokens=1024,
                 messages=[{
@@ -505,9 +509,15 @@ Provide ONLY the JSON, no other text.
             entry_price = market_data['ask'] if action == 'BUY' else market_data['bid']
 
             # Stop Loss és Take Profit számítása (pip-ben)
+            # Az AI által adott pip értékek túl kicsik lehetnek (pl. 1-2 pip),
+            # ami a bróker minimum stop-távolsága alá esik és TRADING_BAD_STOPS
+            # hibát okoz - ezért egy ésszerű minimumra korlátozzuk.
+            MIN_STOP_PIPS = 10
             pip_value = self._pip_value(symbol)
-            stop_loss_distance = decision.get('stop_loss_pips', 20) * pip_value
-            take_profit_distance = decision.get('take_profit_pips', 40) * pip_value
+            stop_loss_pips = max(decision.get('stop_loss_pips', 20) or 20, MIN_STOP_PIPS)
+            take_profit_pips = max(decision.get('take_profit_pips', 40) or 40, MIN_STOP_PIPS)
+            stop_loss_distance = stop_loss_pips * pip_value
+            take_profit_distance = take_profit_pips * pip_value
 
             if action == 'BUY':
                 stop_loss = entry_price - stop_loss_distance

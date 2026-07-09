@@ -80,6 +80,7 @@ class CTraderMCPServer:
 
         # Cache
         self.symbols_cache: Dict[str, Dict] = {}
+        self.symbol_details_cache: Dict[int, Dict] = {}
         self.spot_data_cache: Dict[int, Dict] = {}
 
         logger.info("🚀 MCP Server inicializálva")
@@ -288,6 +289,36 @@ class CTraderMCPServer:
 
         return self.symbols_cache.get(symbol_name, {}).get('symbolId')
 
+    async def get_symbol_details(self, symbol_id: int) -> Dict[str, Any]:
+        """
+        Szimbólum kereskedési paramétereinek lekérése (min/max/step volumen),
+        cache-elve - ezek nélkül a megbízás könnyen TRADING_BAD_VOLUME /
+        TRADING_BAD_STOPS hibával elutasításra kerül, mert minden szimbólumnak
+        más a megengedett volumen lépésköze/tartománya.
+        """
+        cached = self.symbol_details_cache.get(symbol_id)
+        if cached:
+            return cached
+
+        response = await self._send_request(
+            self.PROTO_OA_SYMBOL_BY_ID_REQ,
+            {
+                'ctidTraderAccountId': self.account_id,
+                'symbolId': [symbol_id]
+            }
+        )
+
+        if response['payloadType'] != self.PROTO_OA_SYMBOL_BY_ID_RES:
+            raise Exception(f"Symbol details hiba: {response}")
+
+        details_list = response['payload'].get('symbol', [])
+        if not details_list:
+            raise Exception(f"Symbol details nem található (symbolId={symbol_id})")
+
+        details = details_list[0]
+        self.symbol_details_cache[symbol_id] = details
+        return details
+
     async def get_market_data(self, symbol: str = "XAUUSD") -> Dict[str, Any]:
         """
         Aktuális piaci adatok lekérése
@@ -454,6 +485,28 @@ class CTraderMCPServer:
             # cTrader API: volume = lot * 10,000,000 (centiunit)
             volume = int(round(lots * 10_000_000))
 
+            # A symbol saját min/max/step volumen korlátait a cTrader szabja meg,
+            # nem az általunk feltételezett 0.01 lot - ennek hiánya
+            # TRADING_BAD_VOLUME hibát okoz, ha a kockázatmenedzsment által
+            # kalkulált volumen nem esik a megengedett tartományba/lépésközbe.
+            symbol_digits = None
+            try:
+                symbol_details = await self.get_symbol_details(symbol_id)
+                min_volume = symbol_details.get('minVolume', volume)
+                max_volume = symbol_details.get('maxVolume', volume)
+                step_volume = symbol_details.get('stepVolume', 1) or 1
+                symbol_digits = symbol_details.get('digits')
+
+                volume = max(min_volume, min(volume, max_volume))
+                # Kerekítés a legközelebbi lépésközre, majd újra a határok közé
+                # szorítás - a kerekítés (főleg ha max-min nem osztható step-pel,
+                # vagy .5-nél lefelé kerekít a Python banker's rounding miatt)
+                # a tartományon kívülre vagy nem egész értékre vihet.
+                volume = min_volume + round((volume - min_volume) / step_volume) * step_volume
+                volume = int(max(min_volume, min(volume, max_volume)))
+            except Exception as detail_error:
+                logger.warning(f"⚠️ Symbol details lekérési hiba ({symbol}), eredeti volumen marad: {detail_error}")
+
             # Order payload
             order_payload = {
                 'ctidTraderAccountId': self.account_id,
@@ -466,10 +519,18 @@ class CTraderMCPServer:
                 'comment': 'AI Trading Advisor'
             }
 
+            # A stopLoss/takeProfit mezők a ProtoOANewOrderReq-ben 'double' típusúak,
+            # tehát a valós ár értékét várják közvetlenül (pl. 1.14489), NEM az
+            # 1e5-tel skálázott egész számot, ahogy a spot ár/gyertya mezőknél -
+            # a korábbi int(x*100000) skálázás emiatt okozott TRADING_BAD_STOPS hibát.
+            # A szimbólum saját 'digits' értékére kell kerekíteni, különben
+            # a lebegőpontos műveletek extra tizedesjegyet hoznak be (pl. USDJPY
+            # 3 digit helyett 162.60399999999998), ami INVALID_REQUEST hibát okoz.
+            digits = symbol_digits if symbol_digits is not None else 5
             if stop_loss:
-                order_payload['stopLoss'] = int(stop_loss * 100000)
+                order_payload['stopLoss'] = round(float(stop_loss), digits)
             if take_profit:
-                order_payload['takeProfit'] = int(take_profit * 100000)
+                order_payload['takeProfit'] = round(float(take_profit), digits)
 
             response = await self._send_request(
                 self.PROTO_OA_NEW_ORDER_REQ,
