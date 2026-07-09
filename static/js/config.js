@@ -13,6 +13,7 @@ async function loadConfig() {
         document.getElementById('accountId').value = config.account_id || '';
         document.getElementById('maxPositions').value = config.max_positions || '3';
         document.getElementById('riskPerTrade').value = config.risk_per_trade || '1.0';
+        document.getElementById('cycleInterval').value = config.cycle_interval || '60';
 
         // Placeholder-ek az érzékeny adatokhoz
         document.getElementById('clientSecret').placeholder = config.has_client_secret ?
@@ -53,6 +54,7 @@ async function saveConfig() {
         anthropic_api_key: document.getElementById('anthropicKey').value,
         max_positions: document.getElementById('maxPositions').value,
         risk_per_trade: document.getElementById('riskPerTrade').value,
+        cycle_interval: document.getElementById('cycleInterval').value,
         trading_symbols: selectedSymbols
     };
 

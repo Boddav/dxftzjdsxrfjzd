@@ -403,12 +403,26 @@ class AITradingAdvisor:
             while self.running:
                 await self.trading_loop()
 
-                # 1 perc várakozás, de 5 másodpercenként ellenőrizzük a leállítást,
-                # hogy a Stop gomb gyorsan hasson
-                for _ in range(12):
+                # A ciklusidő futásidőben módosítható a Beállítások oldalon
+                # (TRADING_CYCLE_SECONDS env, config.json-be mentve) - ezért
+                # minden körben újraolvassuk, nem csak indításkor rögzítjük.
+                # 5 másodperces darabokban várakozunk, hogy a Stop gomb
+                # gyorsan hasson, akkor is, ha a beállított ciklusidő hosszú.
+                try:
+                    import math
+                    cycle_seconds = float(os.getenv('TRADING_CYCLE_SECONDS', '60'))
+                    if not math.isfinite(cycle_seconds):
+                        raise ValueError("non-finite cycle interval")
+                    cycle_seconds = min(max(cycle_seconds, 30), 3600)
+                except (ValueError, TypeError):
+                    cycle_seconds = 60
+                elapsed = 0
+                while elapsed < cycle_seconds:
                     if not self.running:
                         break
-                    await asyncio.sleep(5)
+                    step = min(5, cycle_seconds - elapsed)
+                    await asyncio.sleep(step)
+                    elapsed += step
 
                 # A websocket kapcsolat keepalive ping timeout-tal elszállhat
                 # (pl. a szinkron Anthropic hívás vagy hálózati hiba miatt).

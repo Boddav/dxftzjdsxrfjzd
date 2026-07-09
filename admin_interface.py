@@ -6,6 +6,7 @@ Web-alapú adminisztrációs felület a trading bot kezeléséhez
 
 import os
 import json
+import math
 import time
 import asyncio
 import threading
@@ -489,6 +490,7 @@ def api_config():
             'account_id': os.getenv('CTRADER_ACCOUNT_ID', ''),
             'max_positions': os.getenv('MAX_OPEN_POSITIONS', '3'),
             'risk_per_trade': os.getenv('MAX_RISK_PER_TRADE', '0.02'),
+            'cycle_interval': os.getenv('TRADING_CYCLE_SECONDS', '60'),
             'available_symbols': AVAILABLE_SYMBOLS,
             'trading_symbols': _get_configured_symbols()
         }
@@ -513,10 +515,35 @@ def api_config():
                 'anthropic_api_key':     'ANTHROPIC_API_KEY',
                 'max_positions':         'MAX_OPEN_POSITIONS',
                 'risk_per_trade':        'MAX_RISK_PER_TRADE',
+                'cycle_interval':        'TRADING_CYCLE_SECONDS',
             }
             for form_key, env_key in field_map.items():
-                val = data.get(form_key, '').strip()
+                raw_val = data.get(form_key, '')
+                # A JSON payload elméletileg bármit tartalmazhat (szám, lista,
+                # objektum) egy elvártan string mezőben - .strip() ezeken
+                # elszállna egy nem egyértelmű 500-as hibával a válaszul várt
+                # explicit 400 helyett, ezért csak str/int/float-ot fogadunk el.
+                if isinstance(raw_val, (int, float)):
+                    val = str(raw_val).strip()
+                elif isinstance(raw_val, str):
+                    val = raw_val.strip()
+                else:
+                    return jsonify({'success': False, 'message': f'Érvénytelen érték a(z) {form_key} mezőhöz.'}), 400
                 if val:
+                    if env_key == 'TRADING_CYCLE_SECONDS':
+                        # Alsó és felső korlát, hogy a felhasználó véletlenül
+                        # se tudjon olyan gyakori ciklust beállítani, ami
+                        # Claude API rate limitbe/túlköltésbe futna (lásd
+                        # korábbi Opus incidenst - a ciklusidő közvetlenül
+                        # szorozza az API hívások/óra számát, szimbólumonként
+                        # eggyel), és math.isfinite kizárja a NaN/inf értékeket,
+                        # amiket a float() simán elfogadna, de <30 nem szűrne ki.
+                        try:
+                            parsed = float(val)
+                            if not math.isfinite(parsed) or parsed < 30 or parsed > 3600:
+                                return jsonify({'success': False, 'message': 'A ciklusidő 30 és 3600 másodperc között lehet.'}), 400
+                        except ValueError:
+                            return jsonify({'success': False, 'message': 'Érvénytelen ciklusidő érték.'}), 400
                     saved[env_key] = val
                     os.environ[env_key] = val  # azonnal érvényes a futó processben
 

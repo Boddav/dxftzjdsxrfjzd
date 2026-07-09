@@ -60,6 +60,12 @@
             </div>
 
             <div class="form-group">
+                <label for="cycleInterval">Ciklusidő (másodperc)</label>
+                <input type="number" id="cycleInterval" name="cycleInterval" class="form-control" min="30" step="1" value="60">
+                <small>Ennyi időnként elemzi újra az AI a szimbólumokat. Minél kisebb, annál gyakoribb (és drágább) a Claude API hívás. Minimum 30 mp.</small>
+            </div>
+
+            <div class="form-group">
                 <label>Kereskedett Szimbólumok</label>
                 <div id="symbolsList" class="checkbox-list">
                     <!-- checkboxok dinamikusan generálva -->
