@@ -461,7 +461,9 @@ class CTraderMCPServer:
                 'orderType': 'MARKET',
                 'tradeSide': side.upper(),
                 'volume': volume,
-                'timeInForce': 'IMMEDIATE_OR_CANCEL'
+                'timeInForce': 'IMMEDIATE_OR_CANCEL',
+                'label': 'AI Trading Advisor',
+                'comment': 'AI Trading Advisor'
             }
 
             if stop_loss:
