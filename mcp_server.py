@@ -58,6 +58,8 @@ class CTraderMCPServer:
     PROTO_OA_TRADER_REQ = 2121
     PROTO_OA_TRADER_RES = 2122
     PROTO_OA_ERROR_RES = 2142
+    PROTO_OA_GET_POSITION_UNREALIZED_PNL_REQ = 2187
+    PROTO_OA_GET_POSITION_UNREALIZED_PNL_RES = 2188
 
     def __init__(self, credentials_path: str = "credentials.json"):
         """
@@ -475,6 +477,55 @@ class CTraderMCPServer:
             logger.error(f"❌ Pozíciók lekérési hiba: {e}")
             # Lásd get_symbols_list komment - itt sem nyelhetjük el a hibát,
             # különben a hívó reconnect-logikája sosem aktiválódik.
+            raise
+
+    async def get_positions_unrealized_pnl(self) -> Dict[int, Dict[str, float]]:
+        """
+        Nyitott pozíciók valós unrealized P&L-je - NEM saját becsléssel
+        (árfolyam-különbség * contract size * lot), hanem a cTrader szerver
+        saját PROTO_OA_GET_POSITION_UNREALIZED_PNL_REQ üzenetével lekérve.
+
+        Ez azért jobb a kézi számításnál, mint azt korábban használtuk: a
+        szerver már a számla devizanemére (pl. USD) konvertálva adja vissza
+        az eredményt, ezért nem kell a quote-deviza -> számla-deviza
+        átváltást (pl. USDJPY esetén JPY -> USD) magunknak, hibalehetőséget
+        rejtve, leprogramoznunk.
+
+        Returns:
+            Dict[int, Dict]: position_id -> {'gross': float, 'net': float}
+            (a számla devizanemében, pl. USD)
+        """
+        try:
+            if not self.authenticated:
+                await self.connect()
+
+            response = await self._send_request(
+                self.PROTO_OA_GET_POSITION_UNREALIZED_PNL_REQ,
+                {'ctidTraderAccountId': self.account_id}
+            )
+
+            if response['payloadType'] != self.PROTO_OA_GET_POSITION_UNREALIZED_PNL_RES:
+                raise Exception(f"Unrealized PnL lekérési hiba: {response}")
+
+            payload = response['payload']
+            money_digits = payload.get('moneyDigits', 2)
+            scale = 10 ** money_digits
+
+            result = {}
+            for item in payload.get('positionUnrealizedPnL', []):
+                position_id = item.get('positionId')
+                if position_id is None:
+                    continue
+                result[position_id] = {
+                    'gross': item.get('grossUnrealizedPnL', 0) / scale,
+                    'net': item.get('netUnrealizedPnL', 0) / scale,
+                }
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ Unrealized PnL lekérési hiba: {e}")
+            # Kapcsolat-jellegű hibáknál a hívónak (megosztott kapcsolat
+            # újracsatlakozási logikája) látnia kell a hibát.
             raise
 
     async def place_order(

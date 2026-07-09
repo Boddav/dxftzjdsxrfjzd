@@ -17,7 +17,7 @@ import logging
 import requests as http_requests
 
 # Saját modulok
-from ai_trading_advisor import AITradingAdvisor, RiskManager
+from ai_trading_advisor import AITradingAdvisor
 from mcp_server import CTraderMCPServer
 from mcp_connection_manager import run_shared
 
@@ -292,11 +292,16 @@ async def _fetch_real_positions(server):
 
     id_to_name = {s.get('symbolId'): name for name, s in server.symbols_cache.items()}
 
-    # Élő ár lekérése minden nyitott pozíció szimbólumához, hogy a currentPrice
-    # és a pnl valós, friss árfolyamon alapuljon - korábban currentPrice mindig
-    # az openPrice-cal volt egyenlő, és a pnl csak a swap+commission-t
-    # tartalmazta (az árfolyam-elmozdulást soha), ezért a felület sosem
-    # mutatott érdemi P&L-változást.
+    # Élő ár lekérése minden nyitott pozíció szimbólumához - ez KIZÁRÓLAG a
+    # currentPrice megjelenítéséhez kell, nem a P&L számításához. A P&L-t
+    # korábban itt magunk számoltuk (árfolyam-különbség * contract size *
+    # lot), ami két hibát is okozott: (1) a quote-deviza -> számla-deviza
+    # átváltást (pl. USDJPY: JPY -> USD) magunknak kellett leprogramozni,
+    # ami könnyen elromlik; (2) ez csak egy közelítés a valós bróker
+    # P&L-hez képest. Ehelyett most a cTrader szerver saját
+    # get_positions_unrealized_pnl()-jét kérdezzük le, ami már a számla
+    # devizanemében (USD) adja vissza a pontos, valós P&L-t - ugyanazt,
+    # amit a cTrader alkalmazás is mutat.
     unique_symbols = {
         id_to_name.get(p.get('symbol_id')) for p in raw_positions
         if id_to_name.get(p.get('symbol_id'))
@@ -308,10 +313,17 @@ async def _fetch_real_positions(server):
         except Exception as e:
             logger.warning(f"⚠️ Élő árfolyam lekérési hiba ({sym}): {e}")
 
+    try:
+        unrealized_pnl_by_position = await server.get_positions_unrealized_pnl()
+    except Exception as e:
+        logger.warning(f"⚠️ Szerver-oldali unrealized P&L lekérési hiba: {e}")
+        unrealized_pnl_by_position = {}
+
     positions = []
     for p in raw_positions:
         symbol_id = p.get('symbol_id')
         symbol_name = id_to_name.get(symbol_id, f"ID:{symbol_id}")
+        position_id = p.get('position_id')
         entry_price = p.get('entry_price') or 0
         lots = round((p.get('volume') or 0) / 10_000_000, 2)
         side = p.get('side')
@@ -327,49 +339,26 @@ async def _fetch_real_positions(server):
             # bid-en, a SELL-t az ask-on - ez adja a valós, aktuálisan
             # realizálható árat.
             current_price = bid if side == 'BUY' else ask
-            contract_size = RiskManager._contract_size(symbol_name)
-            price_diff = (current_price - entry_price) if side == 'BUY' else (entry_price - current_price)
-            price_pnl = price_diff * contract_size * lots
-            # A price_pnl a szimbólum ÁRFOLYAM (quote) devizanemében értendő,
-            # nem feltétlenül a számla devizanemében (USD). USDJPY esetén
-            # a fenti szorzás JPY-ban adja az eredményt, ami USD-ként kiírva
-            # kb. az árfolyam-szorosára (itt kb. 160x-ra) túlbecsülte a
-            # valós P&L-t (ez okozta, hogy a dashboard $28-at mutatott a
-            # cTrader appban látható valós ~$0.11 helyett).
-            #
-            # FONTOS: ez a JPY/USD-osztás KIZÁRÓLAG a USDJPY párra helyes,
-            # mert ott a bázis (USD) egyezik a számla devizanemével, így a
-            # pár saját árfolyama pont a JPY->USD átváltási rátát adja.
-            # Egy esetleges kereszt JPY-párnál (pl. EURJPY, GBPJPY) ez a
-            # képlet HAMIS eredményt adna (EUR/GBP-re konvertálna, nem
-            # USD-re) - ott külön USD-keresztárfolyam kellene. Ezért
-            # szándékosan explicit szimbólum-egyezést vizsgálunk, nem
-            # általános "*JPY" végződést, hogy új szimbólum bevezetésekor
-            # ne csendben adjon rossz P&L-t.
-            sym_upper = symbol_name.upper()
-            if sym_upper == 'USDJPY' and current_price:
-                price_pnl = price_pnl / current_price
-            elif not (
-                sym_upper.endswith('USD')  # pl. EURUSD, GBPUSD, XAUUSD, BTCUSD - a quote már USD
-                or 'XAU' in sym_upper
-                or 'XAG' in sym_upper
-            ):
-                # Ismeretlen/nem kezelt quote-devizanemű szimbólum (pl. egy
-                # jövőbeli EURJPY/GBPJPY) - ne jelenítsünk meg csendben rossz
-                # (nem konvertált) P&L-t, csak jelezzük a logban.
-                logger.warning(
-                    f"⚠️ {symbol_name}: nincs ismert USD-átváltási szabály ehhez a "
-                    f"szimbólumhoz, a P&L érték helytelen lehet"
-                )
-            pnl = round(price_pnl - swap - commission, 2)
         else:
             # Nincs élő ár (pl. subscription timeout) - visszaesünk a nyitási
-            # árra, de ezt jelezzük, hogy a felhasználó ne tekintse frissnek.
+            # árra a megjelenítéshez.
             current_price = entry_price
+
+        server_pnl = unrealized_pnl_by_position.get(position_id)
+        if server_pnl is not None:
+            pnl = round(server_pnl['net'], 2)
+        else:
+            # Ha a szerver-oldali lekérés kimaradt (pl. átmeneti hálózati
+            # hiba), csak a biztosan ismert swap+commission-t mutatjuk -
+            # inkább hiányos, mint egy csendben rosszul becsült érték.
+            logger.warning(
+                f"⚠️ {symbol_name} (id={position_id}): nincs szerver-oldali "
+                f"unrealized P&L, csak swap/commission jelenik meg"
+            )
             pnl = round(-swap - commission, 2)
 
         positions.append({
-            'id': p.get('position_id'),
+            'id': position_id,
             'symbol': symbol_name,
             'type': side,
             'volume': lots,
