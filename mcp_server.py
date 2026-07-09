@@ -42,21 +42,22 @@ class CTraderMCPServer:
     PROTO_OA_APPLICATION_AUTH_RES = 2101
     PROTO_OA_ACCOUNT_AUTH_REQ = 2102
     PROTO_OA_ACCOUNT_AUTH_RES = 2103
-    PROTO_OA_SYMBOL_BY_ID_REQ = 2106
-    PROTO_OA_SYMBOL_BY_ID_RES = 2107
+    PROTO_OA_SYMBOL_BY_ID_REQ = 2116
+    PROTO_OA_SYMBOL_BY_ID_RES = 2117
     PROTO_OA_SYMBOLS_LIST_REQ = 2114
     PROTO_OA_SYMBOLS_LIST_RES = 2115
-    PROTO_OA_SUBSCRIBE_SPOTS_REQ = 2116
-    PROTO_OA_SUBSCRIBE_SPOTS_RES = 2117
-    PROTO_OA_SPOT_EVENT = 2118
-    PROTO_OA_GET_TRENDBARS_REQ = 2122
-    PROTO_OA_GET_TRENDBARS_RES = 2123
-    PROTO_OA_NEW_ORDER_REQ = 2126
-    PROTO_OA_EXECUTION_EVENT = 2127
+    PROTO_OA_SUBSCRIBE_SPOTS_REQ = 2127
+    PROTO_OA_SUBSCRIBE_SPOTS_RES = 2128
+    PROTO_OA_SPOT_EVENT = 2131
+    PROTO_OA_GET_TRENDBARS_REQ = 2137
+    PROTO_OA_GET_TRENDBARS_RES = 2138
+    PROTO_OA_NEW_ORDER_REQ = 2106
+    PROTO_OA_EXECUTION_EVENT = 2126
     PROTO_OA_RECONCILE_REQ = 2124
     PROTO_OA_RECONCILE_RES = 2125
     PROTO_OA_TRADER_REQ = 2121
     PROTO_OA_TRADER_RES = 2122
+    PROTO_OA_ERROR_RES = 2142
 
     def __init__(self, credentials_path: str = "credentials.json"):
         """
@@ -201,16 +202,41 @@ class CTraderMCPServer:
         if not self.authenticated:
             raise Exception("Nincs authentikálva!")
 
+        client_msg_id = str(uuid.uuid4())
         msg = {
-            'clientMsgId': str(uuid.uuid4()),
+            'clientMsgId': client_msg_id,
             'payloadType': payload_type,
             'payload': payload
         }
 
         await self.ws.send(json.dumps(msg))
-        response = json.loads(await asyncio.wait_for(self.ws.recv(), timeout=20))
 
-        return response
+        # A socketen aszinkron push üzenetek (pl. spot event) is érkezhetnek
+        # a válaszunk előtt, ezért a clientMsgId alapján válogatjuk ki a miénket,
+        # a köztes push üzeneteket pedig cache-eljük/eldobjuk, nem hibaként kezeljük.
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + 20
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise asyncio.TimeoutError(f"Nem érkezett válasz (payloadType={payload_type}) időben")
+
+            raw = await asyncio.wait_for(self.ws.recv(), timeout=remaining)
+            response = json.loads(raw)
+
+            if response.get('clientMsgId') == client_msg_id:
+                return response
+
+            # Nem a mi válaszunk - ha spot event, gyorsítótárazzuk, egyébként eldobjuk
+            self._cache_pushed_message(response)
+
+    def _cache_pushed_message(self, message: Dict) -> None:
+        """Aszinkron (nem kért) szerver üzenetek cache-elése, pl. spot event"""
+        if message.get('payloadType') == self.PROTO_OA_SPOT_EVENT:
+            payload = message.get('payload', {})
+            symbol_id = payload.get('symbolId')
+            if symbol_id is not None:
+                self.spot_data_cache[symbol_id] = payload
 
     async def get_symbols_list(self) -> List[Dict]:
         """
@@ -281,7 +307,8 @@ class CTraderMCPServer:
             if not symbol_id:
                 raise ValueError(f"Szimbólum nem található: {symbol}")
 
-            # Spot subscription
+            # Spot subscription (a válasz csak a feliratkozást nyugtázza, az árat
+            # egy külön, aszinkron spot event tartalmazza)
             response = await self._send_request(
                 self.PROTO_OA_SUBSCRIBE_SPOTS_REQ,
                 {
@@ -293,15 +320,25 @@ class CTraderMCPServer:
             if response['payloadType'] != self.PROTO_OA_SUBSCRIBE_SPOTS_RES:
                 raise Exception(f"Spot subscription hiba: {response}")
 
-            # Spot event várakozás (timeout, ha nem jön tick időben)
-            spot_event = json.loads(await asyncio.wait_for(self.ws.recv(), timeout=15))
+            # Spot event várakozás (timeout, ha nem jön tick időben). A cache-ben
+            # már benne lehet, ha _send_request közben kaptuk meg push-ként.
+            deadline = asyncio.get_event_loop().time() + 15
+            payload = self.spot_data_cache.get(symbol_id)
+            while not payload and asyncio.get_event_loop().time() < deadline:
+                raw = await asyncio.wait_for(
+                    self.ws.recv(),
+                    timeout=max(deadline - asyncio.get_event_loop().time(), 0.1)
+                )
+                event = json.loads(raw)
+                self._cache_pushed_message(event)
+                payload = self.spot_data_cache.get(symbol_id)
 
-            if spot_event['payloadType'] == self.PROTO_OA_SPOT_EVENT:
-                ticks = spot_event['payload'].get('trendbar', [])
-                if ticks:
-                    tick = ticks[0]
-                    bid = tick.get('bid', 0) / 100000  # Normalize
-                    ask = tick.get('ask', 0) / 100000
+            if payload:
+                raw_bid = payload.get('bid')
+                raw_ask = payload.get('ask')
+                if raw_bid or raw_ask:
+                    bid = (raw_bid or raw_ask) / 100000  # Normalize
+                    ask = (raw_ask or raw_bid) / 100000
 
                     result = {
                         'symbol': symbol,
@@ -530,14 +567,17 @@ class CTraderMCPServer:
             candles = []
 
             for bar in trendbars:
+                # A trendbar 'low' + delta kódolt (deltaOpen/deltaHigh/deltaClose
+                # az alacsonyhoz képesti eltérés), nem közvetlen OHLC mezők
+                low = bar.get('low', 0)
                 candles.append({
-                    'timestamp': datetime.fromtimestamp(
+                    'timestamp': datetime.utcfromtimestamp(
                         bar.get('utcTimestampInMinutes', 0) * 60
                     ).isoformat(),
-                    'open': bar.get('open', 0) / 100000,
-                    'high': bar.get('high', 0) / 100000,
-                    'low': bar.get('low', 0) / 100000,
-                    'close': bar.get('close', 0) / 100000,
+                    'open': (low + bar.get('deltaOpen', 0)) / 100000,
+                    'high': (low + bar.get('deltaHigh', 0)) / 100000,
+                    'low': low / 100000,
+                    'close': (low + bar.get('deltaClose', 0)) / 100000,
                     'volume': bar.get('volume', 0)
                 })
 

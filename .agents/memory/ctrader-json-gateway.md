@@ -20,8 +20,17 @@ In `PROTO_OA_RECONCILE_RES` positions, `position.price` is already a real decima
 ## Order response payloadType
 On this JSON gateway, a successful order execution response reuses the same `payloadType` as `PROTO_OA_NEW_ORDER_REQ` (2126) rather than a distinct execution-event type — disambiguate success by checking for an `order`/`position` key in the payload, not by payloadType alone.
 
-## Trendbars (candles) request unresolved
-`PROTO_OA_GET_TRENDBARS_REQ` (2122) on this JSON gateway consistently fails with `INVALID_REQUEST: Message missing required fields: trader`, even sending all documented fields (`ctidTraderAccountId`, `symbolId`, `period` as string or numeric enum, `fromTimestamp`, `toTimestamp`, `count`). Adding a literal `trader` field breaks JSON parsing server-side instead of fixing it. Root cause not yet found — needs a working reference client/packet capture to compare exact wire format. Until fixed, candle-based technical analysis (and therefore the automated trading decision loop) cannot get bar data and will safely skip trading (falls back to HOLD/no-data) rather than trade blind.
+## payloadType numbers must come from the real protobuf spec, not guessed
+Several hand-typed `payloadType` constants (GetTrendbars, SubscribeSpots, etc.) were wrong, causing misleading `INVALID_REQUEST: Message missing required fields: <unrelated field>` errors — the gateway was parsing the payload as a *different* message type. Fix: `pip install ctrader-open-api` (official Spotware lib, unused for networking here, only for its generated protobuf classes) and read the true payloadType off `SomeProtoClass().payloadType`, and field names off `SomeProtoClass.DESCRIPTOR.fields_by_name.keys()`. Don't hand-guess these numbers/fields again.
+
+## Push messages (spot events) interleave with request/response traffic
+Once subscribed via `PROTO_OA_SUBSCRIBE_SPOTS_REQ`, the server pushes `ProtoOASpotEvent` (2131) asynchronously on the same socket, which can arrive between a request and its matching response. A naive single `send()`+`recv()` pairing breaks (grabs the wrong message). Fix: match responses by `clientMsgId` in a loop, caching/discarding non-matching push messages instead of treating them as errors.
+
+## Trendbar (candle) OHLC is delta-encoded, not direct fields
+`ProtoOATrendbar` has fields `low`, `deltaOpen`, `deltaHigh`, `deltaClose` (all raw units, /100000 for real price) — there are no direct `open`/`high`/`close` fields. Real price = `(low + deltaX) / 100000`. `utcTimestampInMinutes` is UTC — convert with `datetime.utcfromtimestamp`, not local-time `fromtimestamp`, or candle timestamps drift on non-UTC hosts.
+
+## Architectural caveat (not yet fixed)
+The request/response handling above is not concurrency-safe: two coroutines calling into the same `CTraderMCPServer` connection at once can steal each other's responses (`websockets` doesn't support concurrent `recv()`). Currently safe only because the bot's trading loop awaits everything sequentially in one coroutine chain — do not add parallel calls (e.g. concurrent per-symbol fetches) without first adding a single central reader task that dispatches by `clientMsgId`.
 
 ## Resource management
 Each `CTraderMCPServer` instance holds one WebSocket; always call a `close()` on it after use (e.g. in a `finally` block) when opening a fresh connection per HTTP request, or connections/file descriptors leak under polling.
