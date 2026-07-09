@@ -68,3 +68,4 @@ temp/
 # Trading Data
 trade_history.json
 backtest_results/
+bot_state.json

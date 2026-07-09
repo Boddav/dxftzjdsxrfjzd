@@ -41,6 +41,7 @@ CORS(app, resources={
 
 DEFAULT_SYMBOLS = ['XAUUSD']
 AVAILABLE_SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTCUSD']
+BOT_STATE_FILE = 'bot_state.json'
 
 # Globális bot instance
 bot_instance = None
@@ -64,6 +65,27 @@ def _get_configured_symbols():
     return symbols or DEFAULT_SYMBOLS
 
 
+def _save_bot_state(running, symbols=None):
+    """A bot fut/nem-fut állapotának lementése fájlba, hogy szerver-újraindítás
+    után automatikusan visszaállítható legyen (lásd _resume_bot_if_needed)."""
+    try:
+        with open(BOT_STATE_FILE, 'w') as f:
+            json.dump({'running': running, 'symbols': symbols or []}, f)
+    except OSError as e:
+        logger.error(f"Bot állapot mentési hiba: {e}")
+
+
+def _load_bot_state():
+    if not os.path.exists(BOT_STATE_FILE):
+        return {'running': False, 'symbols': []}
+    try:
+        with open(BOT_STATE_FILE, 'r') as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        logger.error(f"Bot állapot betöltési hiba: {e}")
+        return {'running': False, 'symbols': []}
+
+
 def _bot_thread_target(advisor, generation):
     """A trading bot async loop-jának futtatása egy dedikált szálon"""
     error_message = None
@@ -80,6 +102,10 @@ def _bot_thread_target(advisor, generation):
                 bot_status['last_update'] = datetime.now().isoformat()
                 if error_message:
                     bot_status['error'] = error_message
+                # A bot váratlanul (hibával vagy magától) leállt - a mentett
+                # állapotot is frissítjük, különben legközelebbi induláskor
+                # feleslegesen (vagy tévesen) próbálná visszaindítani.
+                _save_bot_state(running=False)
 
 # Logging
 logging.basicConfig(
@@ -101,43 +127,56 @@ def api_status():
     return jsonify(bot_status)
 
 
+def _start_bot_internal(persist_state=True, symbols=None):
+    """A bot indítási logikájának magja - ezt hívja a /api/start route és az
+    induláskori automatikus visszaállítás (_resume_bot_if_needed) is.
+    A bot_lock-ot a hívónak kell tartania.
+    Ha symbols nincs megadva, a jelenlegi configból olvassuk (ez a normál
+    manuális indítás esete); a resume path viszont a legutóbb mentett
+    listát adja át, hogy pontosan azt a szimbólumkört induljon újra."""
+    global bot_instance, bot_thread, bot_status, bot_generation
+
+    if bot_status['running']:
+        return {'success': False, 'message': 'Bot már fut!'}
+
+    # Ellenőrzés: van-e minden szükséges konfiguráció
+    anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+    if not anthropic_key:
+        return {'success': False, 'message': 'ANTHROPIC_API_KEY nincs beállítva!'}
+
+    if not os.getenv('CTRADER_CLIENT_ID'):
+        return {'success': False, 'message': 'cTrader credentials nincsenek beállítva! Később add hozzá.'}
+
+    symbols = symbols or _get_configured_symbols()
+
+    bot_generation += 1
+    generation = bot_generation
+    bot_instance = AITradingAdvisor(anthropic_key, symbols=symbols)
+    bot_thread = threading.Thread(target=_bot_thread_target, args=(bot_instance, generation), daemon=True)
+    bot_thread.start()
+
+    bot_status['running'] = True
+    bot_status['symbols'] = symbols
+    bot_status['last_update'] = datetime.now().isoformat()
+    bot_status.pop('error', None)
+
+    if persist_state:
+        _save_bot_state(running=True, symbols=symbols)
+
+    logger.info(f"Trading bot elindítva - Szimbólumok: {', '.join(symbols)}")
+    return {
+        'success': True,
+        'message': f'Bot elindult, percenként elemzi: {", ".join(symbols)}'
+    }
+
+
 @app.route('/api/start', methods=['POST'])
 def api_start_bot():
     """Bot indítása - valódi automatikus kereskedési loop háttérszálon"""
-    global bot_instance, bot_thread, bot_status, bot_generation
-
     with bot_lock:
         try:
-            if bot_status['running']:
-                return jsonify({'success': False, 'message': 'Bot már fut!'})
-
-            # Ellenőrzés: van-e minden szükséges konfiguráció
-            anthropic_key = os.getenv('ANTHROPIC_API_KEY')
-            if not anthropic_key:
-                return jsonify({'success': False, 'message': 'ANTHROPIC_API_KEY nincs beállítva!'})
-
-            if not os.getenv('CTRADER_CLIENT_ID'):
-                return jsonify({'success': False, 'message': 'cTrader credentials nincsenek beállítva! Később add hozzá.'})
-
-            symbols = _get_configured_symbols()
-
-            bot_generation += 1
-            generation = bot_generation
-            bot_instance = AITradingAdvisor(anthropic_key, symbols=symbols)
-            bot_thread = threading.Thread(target=_bot_thread_target, args=(bot_instance, generation), daemon=True)
-            bot_thread.start()
-
-            bot_status['running'] = True
-            bot_status['symbols'] = symbols
-            bot_status['last_update'] = datetime.now().isoformat()
-            bot_status.pop('error', None)
-
-            logger.info(f"Trading bot elindítva - Szimbólumok: {', '.join(symbols)}")
-            return jsonify({
-                'success': True,
-                'message': f'Bot elindult, percenként elemzi: {", ".join(symbols)}'
-            })
-
+            result = _start_bot_internal()
+            return jsonify(result)
         except Exception as e:
             logger.error(f"Bot indítási hiba: {str(e)}")
             return jsonify({'success': False, 'message': f'Hiba: {str(e)}'})
@@ -178,9 +217,32 @@ def api_stop_bot():
         bot_thread = None
         bot_status['running'] = False
         bot_status['last_update'] = datetime.now().isoformat()
+        _save_bot_state(running=False)
 
     logger.info("Trading bot leállítva")
     return jsonify({'success': True, 'message': 'Bot sikeresen leállítva'})
+
+
+def _resume_bot_if_needed():
+    """Ha a szerver leállás/újraindítás előtt a bot futott, automatikusan
+    visszaindítjuk induláskor - lásd _save_bot_state / _load_bot_state.
+    Bármilyen hiba itt logolva legyen, de sose akadályozza meg a szerver
+    elindulását."""
+    try:
+        state = _load_bot_state()
+        if not state.get('running'):
+            return
+        saved_symbols = state.get('symbols') or None
+        with bot_lock:
+            result = _start_bot_internal(symbols=saved_symbols)
+        if result.get('success'):
+            logger.info("🔄 Bot automatikusan visszaindítva (korábban futott a szerver újraindítása előtt)")
+        else:
+            logger.warning(f"Bot automatikus visszaindítása sikertelen: {result.get('message')}")
+            _save_bot_state(running=False)
+    except Exception as e:
+        logger.error(f"Bot automatikus visszaindítási hiba: {e}")
+        _save_bot_state(running=False)
 
 
 def _run_async(coro):
@@ -598,6 +660,12 @@ if __name__ == '__main__':
     # Admin felület indítása
     port = int(os.getenv('ADMIN_PORT', 5000))
     debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+
+    # Debug módban a Flask reloader a modult kétszer futtatja le (egyszer a
+    # figyelő szülőfolyamatban is) - a WERKZEUG_RUN_MAIN csak a tényleges
+    # szerver-folyamatban van beállítva, így itt kerüljük el a bot dupla indítását.
+    if not debug or os.getenv('WERKZEUG_RUN_MAIN') == 'true':
+        _resume_bot_if_needed()
 
     print(f"""
 ╔════════════════════════════════════════════╗

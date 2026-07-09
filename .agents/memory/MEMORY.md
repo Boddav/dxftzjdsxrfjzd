@@ -1,1 +1,2 @@
 - [cTrader Open API JSON gateway quirks](ctrader-json-gateway.md) — undocumented protocol details for wss://demo.ctraderapi.com:5036 JSON (non-protobuf) gateway.
+- [Flask bot in-memory state and restarts](flask-bot-restart-persistence.md) — bot run/stop state must be persisted to disk and resumed on startup, or workflow restarts silently kill trading.
