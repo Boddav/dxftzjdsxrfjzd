@@ -330,6 +330,37 @@ async def _fetch_real_positions(server):
             contract_size = RiskManager._contract_size(symbol_name)
             price_diff = (current_price - entry_price) if side == 'BUY' else (entry_price - current_price)
             price_pnl = price_diff * contract_size * lots
+            # A price_pnl a szimbólum ÁRFOLYAM (quote) devizanemében értendő,
+            # nem feltétlenül a számla devizanemében (USD). USDJPY esetén
+            # a fenti szorzás JPY-ban adja az eredményt, ami USD-ként kiírva
+            # kb. az árfolyam-szorosára (itt kb. 160x-ra) túlbecsülte a
+            # valós P&L-t (ez okozta, hogy a dashboard $28-at mutatott a
+            # cTrader appban látható valós ~$0.11 helyett).
+            #
+            # FONTOS: ez a JPY/USD-osztás KIZÁRÓLAG a USDJPY párra helyes,
+            # mert ott a bázis (USD) egyezik a számla devizanemével, így a
+            # pár saját árfolyama pont a JPY->USD átváltási rátát adja.
+            # Egy esetleges kereszt JPY-párnál (pl. EURJPY, GBPJPY) ez a
+            # képlet HAMIS eredményt adna (EUR/GBP-re konvertálna, nem
+            # USD-re) - ott külön USD-keresztárfolyam kellene. Ezért
+            # szándékosan explicit szimbólum-egyezést vizsgálunk, nem
+            # általános "*JPY" végződést, hogy új szimbólum bevezetésekor
+            # ne csendben adjon rossz P&L-t.
+            sym_upper = symbol_name.upper()
+            if sym_upper == 'USDJPY' and current_price:
+                price_pnl = price_pnl / current_price
+            elif not (
+                sym_upper.endswith('USD')  # pl. EURUSD, GBPUSD, XAUUSD, BTCUSD - a quote már USD
+                or 'XAU' in sym_upper
+                or 'XAG' in sym_upper
+            ):
+                # Ismeretlen/nem kezelt quote-devizanemű szimbólum (pl. egy
+                # jövőbeli EURJPY/GBPJPY) - ne jelenítsünk meg csendben rossz
+                # (nem konvertált) P&L-t, csak jelezzük a logban.
+                logger.warning(
+                    f"⚠️ {symbol_name}: nincs ismert USD-átváltási szabály ehhez a "
+                    f"szimbólumhoz, a P&L érték helytelen lehet"
+                )
             pnl = round(price_pnl - swap - commission, 2)
         else:
             # Nincs élő ár (pl. subscription timeout) - visszaesünk a nyitási
