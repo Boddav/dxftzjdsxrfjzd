@@ -67,6 +67,8 @@
 
             <div class="form-group">
                 <label>Kereskedett Szimbólumok</label>
+                <input type="text" id="symbolSearch" class="form-control" placeholder="Keresés (pl. EUR, XAU, BTC)..." oninput="filterSymbols()">
+                <div id="symbolsListInfo" class="message" style="display:none;"></div>
                 <div id="symbolsList" class="checkbox-list">
                     <!-- checkboxok dinamikusan generálva -->
                 </div>

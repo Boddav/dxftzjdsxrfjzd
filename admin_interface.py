@@ -335,6 +335,43 @@ _positions_cache = {'ts': 0.0, 'data': None}
 _POSITIONS_CACHE_TTL = 3.0  # mp - lásd lent, miért kell
 _positions_cache_lock = threading.Lock()
 
+# A bróker teljes (élő) szimbólumlistájának rövid cache-e - a Beállítások
+# oldal ezt tölti be a statikus AVAILABLE_SYMBOLS helyett/mellett. Hosszabb
+# TTL, mert a bróker szimbólumkínálata gyakorlatilag sosem változik oldal-
+# betöltések között, és nem akarjuk feleslegesen terhelni a megosztott
+# kapcsolatot minden Beállítások-oldal megnyitásnál.
+_symbols_cache = {'ts': 0.0, 'data': None}
+_SYMBOLS_CACHE_TTL = 300.0  # mp
+_symbols_cache_lock = threading.Lock()
+
+
+def _get_available_symbols_cached():
+    """
+    A cTrader bróker teljes, élő szimbólumlistájának neveit adja vissza
+    (rövid cache mögött). Ha nincs azonosítás vagy hiba történik, None-t ad
+    vissza - a hívó ilyenkor essen vissza a statikus AVAILABLE_SYMBOLS-ra.
+    """
+    if not os.path.exists('credentials.json'):
+        return None
+    with _symbols_cache_lock:
+        now = time.monotonic()
+        if _symbols_cache['data'] is not None and (now - _symbols_cache['ts']) < _SYMBOLS_CACHE_TTL:
+            return _symbols_cache['data']
+        try:
+            async def _fetch(server):
+                return await server.get_symbols_list()
+
+            symbols = run_shared(_fetch)
+            names = sorted({
+                s.get('symbolName') for s in symbols if s.get('symbolName')
+            })
+            _symbols_cache['data'] = names
+            _symbols_cache['ts'] = time.monotonic()
+            return names
+        except Exception as e:
+            logger.warning(f"⚠️ Élő szimbólumlista lekérési hiba, statikus lista lesz használva: {e}")
+            return None
+
 
 async def _fetch_real_positions(server):
     await server.get_symbols_list()  # symbolId -> symbolName cache feltöltése
@@ -525,6 +562,24 @@ def api_ai_decisions():
 def config_page():
     """Beállítások oldal"""
     return render_template('config.html')
+
+
+@app.route('/api/symbols')
+def api_symbols():
+    """
+    A bróker teljes, élő szimbólumlistája a Beállítások oldal kereshető
+    választójához. Ha nincs azonosítás vagy a lekérés hibázik, a statikus
+    AVAILABLE_SYMBOLS-t adjuk vissza tartalékként (source='static').
+    """
+    live = _get_available_symbols_cached()
+    if live:
+        return jsonify({'success': True, 'symbols': live, 'source': 'live'})
+    return jsonify({
+        'success': True,
+        'symbols': AVAILABLE_SYMBOLS,
+        'source': 'static',
+        'message': 'Nincs élő cTrader kapcsolat - a szűkített alapértelmezett lista jelenik meg.'
+    })
 
 
 @app.route('/api/config', methods=['GET', 'POST'])

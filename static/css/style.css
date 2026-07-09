@@ -247,6 +247,9 @@ tr:hover {
     flex-wrap: wrap;
     gap: 12px;
     margin-top: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 4px;
 }
 
 .checkbox-item {
