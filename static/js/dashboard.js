@@ -9,7 +9,10 @@ document.addEventListener('DOMContentLoaded', function() {
     loadHistory();
 
     // Automatikus frissítés 5 másodpercenként
-    statusInterval = setInterval(updateStatus, 5000);
+    statusInterval = setInterval(() => {
+        updateStatus();
+        loadPositions();
+    }, 5000);
 });
 
 // Bot státusz frissítése
