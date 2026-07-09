@@ -657,8 +657,8 @@ def api_config():
                     if env_key == 'TRADING_SYMBOL_DELAY_SECONDS':
                         try:
                             parsed = float(val)
-                            if not math.isfinite(parsed) or parsed < 0 or parsed > 300:
-                                return jsonify({'success': False, 'message': 'A szimbólumok közti szünet 0 és 300 másodperc között lehet.'}), 400
+                            if not math.isfinite(parsed) or parsed < 0 or parsed > 3600:
+                                return jsonify({'success': False, 'message': 'A szimbólumok közti szünet 0 és 3600 másodperc között lehet.'}), 400
                         except ValueError:
                             return jsonify({'success': False, 'message': 'Érvénytelen szünet érték.'}), 400
                     saved[env_key] = val

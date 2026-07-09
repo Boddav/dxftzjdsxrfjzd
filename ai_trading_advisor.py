@@ -528,13 +528,13 @@ class AITradingAdvisor:
         # kör végén), hogy a Claude/cTrader API-hívások ne egy szűk,
         # néhány másodperces sorozatban, hanem szétosztva érkezzenek - ez
         # ugyanúgy futásidőben módosítható (Beállítások oldal), mint a
-        # ciklusidő. Alapérték 15s, felső korlát 300s (hogy egy hosszú
+        # ciklusidő. Alapérték 15s, felső korlát 3600s (hogy egy hosszú
         # szünet ne nyújtsa túl a teljes kört a ciklusidőhöz képest).
         try:
             symbol_delay = float(os.getenv('TRADING_SYMBOL_DELAY_SECONDS', '15'))
             if not math.isfinite(symbol_delay):
                 raise ValueError("non-finite symbol delay")
-            symbol_delay = min(max(symbol_delay, 0), 300)
+            symbol_delay = min(max(symbol_delay, 0), 3600)
         except (ValueError, TypeError):
             symbol_delay = 15
 
@@ -542,7 +542,7 @@ class AITradingAdvisor:
             if not self.running:
                 break
             if i > 0 and symbol_delay > 0:
-                # Apró darabokban várunk (nem egy egyben, akár 300s-es
+                # Apró darabokban várunk (nem egy egyben, akár 3600s-es
                 # sleep-pel), hogy a Stop gomb/leállítás ne akadjon el
                 # legfeljebb symbol_delay másodpercre - lásd a ciklusidő
                 # végi várakozásnál alkalmazott ugyanilyen mintát.
