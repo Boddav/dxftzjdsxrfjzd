@@ -345,6 +345,22 @@ def api_history():
         return jsonify({'success': False, 'message': str(e)})
 
 
+@app.route('/api/ai-decisions')
+def api_ai_decisions():
+    """AI visszajelzési panel - minden AI döntés (HOLD is), nem csak a
+    ténylegesen végrehajtott megbízások (lásd /api/history)"""
+    try:
+        decisions_file = 'ai_decisions.json'
+        if os.path.exists(decisions_file):
+            with open(decisions_file, 'r') as f:
+                decisions = json.load(f)
+            return jsonify({'success': True, 'decisions': decisions})
+        else:
+            return jsonify({'success': True, 'decisions': []})
+    except (OSError, json.JSONDecodeError) as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+
 @app.route('/config')
 def config_page():
     """Beállítások oldal"""

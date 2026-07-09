@@ -7,11 +7,13 @@ document.addEventListener('DOMContentLoaded', function() {
     updateStatus();
     loadPositions();
     loadHistory();
+    loadAiDecisions();
 
     // Automatikus frissítés 5 másodpercenként
     statusInterval = setInterval(() => {
         updateStatus();
         loadPositions();
+        loadAiDecisions();
     }, 5000);
 });
 
@@ -146,6 +148,61 @@ async function loadHistory() {
         }
     } catch (error) {
         console.error('Előzmények betöltési hiba:', error);
+    }
+}
+
+// AI visszajelzések betöltése (minden döntés, HOLD is - nem csak a végrehajtott megbízások)
+async function loadAiDecisions() {
+    try {
+        const response = await fetch('/api/ai-decisions');
+        const data = await response.json();
+
+        const tbody = document.getElementById('aiFeedbackBody');
+        tbody.innerHTML = '';
+
+        if (data.success && data.decisions && data.decisions.length > 0) {
+            const recent = data.decisions.slice(-15).reverse();
+            recent.forEach(d => {
+                const tr = document.createElement('tr');
+
+                const tdTime = document.createElement('td');
+                tdTime.textContent = formatTime(d.timestamp);
+
+                const tdSymbol = document.createElement('td');
+                tdSymbol.textContent = d.symbol || '-';
+
+                const tdAction = document.createElement('td');
+                const action = d.action || 'HOLD';
+                const badge = document.createElement('span');
+                // Az action a saját kódunk döntés-listájából jön (BUY/SELL/HOLD),
+                // nem közvetlen AI szöveg, de a class-nevet így is védetten építjük.
+                badge.className = 'action-badge action-' + action.toLowerCase().replace(/[^a-z]/g, '');
+                badge.textContent = action;
+                tdAction.appendChild(badge);
+
+                const tdConfidence = document.createElement('td');
+                tdConfidence.textContent = d.confidence != null ? Math.round(d.confidence * 100) + '%' : '-';
+
+                const tdReasoning = document.createElement('td');
+                // A reasoning a Claude AI nyers szöveges kimenete - sose innerHTML-lel
+                // szúrjuk be, mindig textContent-tel, hogy ne lehessen HTML/script
+                // injektálás az admin felületen.
+                tdReasoning.textContent = d.reasoning || '-';
+
+                tr.append(tdTime, tdSymbol, tdAction, tdConfidence, tdReasoning);
+                tbody.appendChild(tr);
+            });
+        } else {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 5;
+            td.className = 'no-data';
+            td.textContent = 'Nincs AI visszajelzés';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+        }
+    } catch (error) {
+        console.error('AI visszajelzés betöltési hiba:', error);
     }
 }
 

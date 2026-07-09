@@ -8,6 +8,7 @@ import os
 import json
 import asyncio
 import logging
+import threading
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import numpy as np
@@ -237,6 +238,8 @@ class AITradingAdvisor:
         self.risk_manager = RiskManager(max_risk_per_trade=0.02, max_open_positions=3)
         self.running = False
         self.symbols = symbols or ["XAUUSD"]
+        self.ai_decisions_file = 'ai_decisions.json'
+        self._ai_decisions_lock = threading.Lock()
 
         logger.info(f"🤖 AI Trading Advisor inicializálva - Szimbólumok: {', '.join(self.symbols)}")
 
@@ -318,6 +321,8 @@ class AITradingAdvisor:
             )
 
             # 4. Trading döntés végrehajtása
+            self._record_ai_decision(symbol, decision)
+
             if decision['action'] != 'HOLD':
                 await self.execute_trade(symbol, decision, market_data, account_info)
 
@@ -325,6 +330,40 @@ class AITradingAdvisor:
 
         except Exception as e:
             logger.error(f"❌ [{symbol}] Trading loop hiba: {e}")
+
+    def _record_ai_decision(self, symbol: str, decision: Dict[str, Any], max_entries: int = 50):
+        """Minden AI döntés (HOLD is) elmentése egy visszajelzési panelhez -
+        ez különbözik a trade_history.json-tól, ami csak a ténylegesen
+        végrehajtott megbízásokat listázza. Fájlba írjuk, hogy az admin
+        felület (Flask, más processz-szálon) is olvashassa."""
+        entry = {
+            'timestamp': datetime.now().isoformat(),
+            'symbol': symbol,
+            'action': decision.get('action', 'HOLD'),
+            'confidence': decision.get('confidence', 0.0),
+            'reasoning': decision.get('reasoning', ''),
+            'stop_loss_pips': decision.get('stop_loss_pips'),
+            'take_profit_pips': decision.get('take_profit_pips'),
+        }
+        # Lock: csak ez az egyetlen bot-szál ír a fájlba, de több egymást
+        # átfedő trading loop híváskor (elméletben) elkerüli az össze-vissza
+        # írást. Atomi csere (tmp fájl + os.replace) véd az ellen, hogy a
+        # Flask oldali /api/ai-decisions olvasó félig kiírt/csonka fájlt
+        # kapjon, mivel az os.replace egyetlen atomi rename-művelet.
+        with self._ai_decisions_lock:
+            try:
+                decisions = []
+                if os.path.exists(self.ai_decisions_file):
+                    with open(self.ai_decisions_file, 'r') as f:
+                        decisions = json.load(f)
+                decisions.append(entry)
+                decisions = decisions[-max_entries:]
+                tmp_path = f"{self.ai_decisions_file}.tmp"
+                with open(tmp_path, 'w') as f:
+                    json.dump(decisions, f)
+                os.replace(tmp_path, self.ai_decisions_file)
+            except (OSError, json.JSONDecodeError) as e:
+                logger.error(f"AI döntés mentési hiba: {e}")
 
     def technical_analysis(self, close_prices: List[float]) -> Dict[str, Any]:
         """

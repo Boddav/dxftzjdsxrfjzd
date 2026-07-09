@@ -202,6 +202,40 @@ tr:hover {
     background: #f8f9fa;
 }
 
+.text-success {
+    color: #27ae60;
+    font-weight: 600;
+}
+
+.text-danger {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+.action-badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.action-buy {
+    background: #d4f4dd;
+    color: #1e8449;
+}
+
+.action-sell {
+    background: #fbdcd7;
+    color: #c0392b;
+}
+
+.action-hold {
+    background: #eaeded;
+    color: #5d6d7e;
+}
+
 .no-data {
     text-align: center;
     padding: 2rem;
