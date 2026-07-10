@@ -21,24 +21,24 @@
       "created_at": "2026-07-09T21:30:15.339903+00:00"
     },
     {
-      "id": "d361224ae34144d28424efa221c7548f",
-      "symbol": "XAUUSD",
-      "signal": "NEUTRAL",
-      "probability_up": 0.401,
-      "reference_timestamp": "2026-07-10T08:55:00",
-      "reference_close": 4097.84,
-      "target_timestamp": "2026-07-10T09:10:00",
-      "created_at": "2026-07-10T09:01:48.396611+00:00"
+      "id": "c4b2eb0828f944baa5a74610d8418ff8",
+      "symbol": "GBPUSD",
+      "signal": "BUY",
+      "probability_up": 0.616,
+      "reference_timestamp": "2026-07-10T11:00:00",
+      "reference_close": 1.34356,
+      "target_timestamp": "2026-07-10T11:15:00",
+      "created_at": "2026-07-10T11:08:23.387704+00:00"
     },
     {
-      "id": "9d1d81a103c44ae5ba6427f5f90978e3",
+      "id": "a182da6fe59540a796e0d3b960105c19",
       "symbol": "XAUUSD",
       "signal": "BUY",
-      "probability_up": 0.71,
-      "reference_timestamp": "2026-07-10T09:00:00",
-      "reference_close": 4098.51,
-      "target_timestamp": "2026-07-10T09:15:00",
-      "created_at": "2026-07-10T09:08:08.915404+00:00"
+      "probability_up": 0.657,
+      "reference_timestamp": "2026-07-10T12:15:00",
+      "reference_close": 4109.19,
+      "target_timestamp": "2026-07-10T12:30:00",
+      "created_at": "2026-07-10T12:21:27.721522+00:00"
     }
   ],
   "resolved": [
@@ -3381,6 +3381,32 @@
       "created_at": "2026-07-10T08:48:09.455759+00:00",
       "resolved_at": "2026-07-10T09:01:48.180309+00:00",
       "actual_up": false,
+      "correct": true
+    },
+    {
+      "id": "d361224ae34144d28424efa221c7548f",
+      "symbol": "XAUUSD",
+      "signal": "NEUTRAL",
+      "probability_up": 0.401,
+      "reference_timestamp": "2026-07-10T08:55:00",
+      "reference_close": 4097.84,
+      "target_timestamp": "2026-07-10T09:10:00",
+      "created_at": "2026-07-10T09:01:48.396611+00:00",
+      "resolved_at": "2026-07-10T12:21:27.591343+00:00",
+      "actual_up": true,
+      "correct": null
+    },
+    {
+      "id": "9d1d81a103c44ae5ba6427f5f90978e3",
+      "symbol": "XAUUSD",
+      "signal": "BUY",
+      "probability_up": 0.71,
+      "reference_timestamp": "2026-07-10T09:00:00",
+      "reference_close": 4098.51,
+      "target_timestamp": "2026-07-10T09:15:00",
+      "created_at": "2026-07-10T09:08:08.915404+00:00",
+      "resolved_at": "2026-07-10T12:21:27.591359+00:00",
+      "actual_up": true,
       "correct": true
     }
   ]
