@@ -126,6 +126,9 @@ async function runBacktest() {
             candle_count: parseInt(document.getElementById('btCount').value, 10),
             stop_loss_pips: parseFloat(document.getElementById('btSl').value),
             take_profit_pips: parseFloat(document.getElementById('btTp').value),
+            spread_pips: parseFloat(document.getElementById('btSpread').value),
+            slippage_pips: parseFloat(document.getElementById('btSlippage').value),
+            min_hold_bars: parseInt(document.getElementById('btMinHold').value, 10),
         };
         if (!payload.symbol) {
             showAnalyticsMessage('Adj meg egy szimbólumot!', 'error');
@@ -156,7 +159,14 @@ function renderBacktestResult(result) {
     document.getElementById('btWinRate').textContent = fmtPct(result.win_rate);
     document.getElementById('btPnl').textContent = result.total_pnl_pips;
     document.getElementById('btProfitFactor').textContent = result.profit_factor === null ? '-' : result.profit_factor;
-    document.getElementById('btDrawdown').textContent = result.max_drawdown_pips;
+    document.getElementById('btDrawdown').textContent = result.max_drawdown_pct === undefined ? '-' : `${result.max_drawdown_pct}%`;
+    document.getElementById('btSharpe').textContent = result.sharpe_ratio === null || result.sharpe_ratio === undefined ? '-' : result.sharpe_ratio;
+    document.getElementById('btSortino').textContent = result.sortino_ratio === null || result.sortino_ratio === undefined ? '-' : result.sortino_ratio;
+    document.getElementById('btCalmar').textContent = result.calmar_ratio === null || result.calmar_ratio === undefined ? '-' : result.calmar_ratio;
+    const longWr = result.long_win_rate === null || result.long_win_rate === undefined ? '-' : fmtPct(result.long_win_rate);
+    const shortWr = result.short_win_rate === null || result.short_win_rate === undefined ? '-' : fmtPct(result.short_win_rate);
+    document.getElementById('btLongShort').textContent = `${longWr} / ${shortWr}`;
+    document.getElementById('btAvgHold').textContent = result.avg_holding_bars === null || result.avg_holding_bars === undefined ? '-' : result.avg_holding_bars;
 
     const tbody = document.getElementById('btTradesTableBody');
     tbody.textContent = '';

@@ -850,6 +850,9 @@ def api_backtest_run():
             count = int(data.get('candle_count', 500))
             stop_loss_pips = float(data.get('stop_loss_pips', backtest_engine.DEFAULT_STOP_LOSS_PIPS))
             take_profit_pips = float(data.get('take_profit_pips', backtest_engine.DEFAULT_TAKE_PROFIT_PIPS))
+            spread_pips = float(data.get('spread_pips', backtest_engine.DEFAULT_SPREAD_PIPS))
+            slippage_pips = float(data.get('slippage_pips', backtest_engine.DEFAULT_SLIPPAGE_PIPS))
+            min_hold_bars = int(data.get('min_hold_bars', backtest_engine.DEFAULT_MIN_HOLD_BARS))
         except (TypeError, ValueError):
             return jsonify({'success': False, 'message': 'Érvénytelen numerikus paraméter.'}), 400
 
@@ -857,6 +860,10 @@ def api_backtest_run():
             return jsonify({'success': False, 'message': 'A gyertyaszám 100 és 1000 között lehet.'}), 400
         if not (5 <= stop_loss_pips <= 500) or not (5 <= take_profit_pips <= 500):
             return jsonify({'success': False, 'message': 'A stop-loss/take-profit 5 és 500 pip között lehet.'}), 400
+        if not (0 <= spread_pips <= 50) or not (0 <= slippage_pips <= 50):
+            return jsonify({'success': False, 'message': 'A spread/csúszás 0 és 50 pip között lehet.'}), 400
+        if not (0 <= min_hold_bars <= 100):
+            return jsonify({'success': False, 'message': 'A minimum tartási idő 0 és 100 gyertya között lehet.'}), 400
 
         async def _fetch(server):
             return await server.get_candles(symbol, timeframe=timeframe, count=count)
@@ -869,6 +876,10 @@ def api_backtest_run():
             symbol, candles,
             stop_loss_pips=stop_loss_pips,
             take_profit_pips=take_profit_pips,
+            spread_pips=spread_pips,
+            slippage_pips=slippage_pips,
+            min_hold_bars=min_hold_bars,
+            timeframe=timeframe,
         )
         _save_backtest_result(symbol, result)
         return jsonify({'success': True, 'result': result})

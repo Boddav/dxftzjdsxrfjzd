@@ -118,6 +118,18 @@
                     <label for="btTp">Take-profit (pip)</label>
                     <input type="number" id="btTp" class="form-control" value="40" min="5" max="500">
                 </div>
+                <div>
+                    <label for="btSpread">Spread (pip)</label>
+                    <input type="number" id="btSpread" class="form-control" value="1.5" min="0" max="50" step="0.1">
+                </div>
+                <div>
+                    <label for="btSlippage">Csúszás (pip)</label>
+                    <input type="number" id="btSlippage" class="form-control" value="0.5" min="0" max="50" step="0.1">
+                </div>
+                <div>
+                    <label for="btMinHold">Min. tartás (gyertya)</label>
+                    <input type="number" id="btMinHold" class="form-control" value="0" min="0" max="100">
+                </div>
                 <button class="btn btn-success" id="btRunBtn" onclick="runBacktest()">▶ Backtest futtatása</button>
             </div>
 
@@ -139,8 +151,28 @@
                     <div class="stat-value" id="btProfitFactor">-</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Max drawdown (pip)</div>
+                    <div class="stat-label">Max drawdown (%)</div>
                     <div class="stat-value" id="btDrawdown">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Sharpe arány</div>
+                    <div class="stat-value" id="btSharpe">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Sortino arány</div>
+                    <div class="stat-value" id="btSortino">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Calmar arány</div>
+                    <div class="stat-value" id="btCalmar">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Long / Short nyerési arány</div>
+                    <div class="stat-value" id="btLongShort">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Átlagos tartási idő (gyertya)</div>
+                    <div class="stat-value" id="btAvgHold">-</div>
                 </div>
             </div>
 
