@@ -658,7 +658,15 @@ class AITradingAdvisor:
                 await self._manage_open_positions(symbol, own_positions, decision.get('position_management'), market_data)
 
             if decision['action'] != 'HOLD':
-                await self.execute_trade(symbol, decision, market_data, account_info)
+                # execute_trade string-et ad vissza, ha a döntést csendben
+                # KIHAGYTA (pl. limit/fedezet miatt, mielőtt megbízást
+                # küldött volna) - ezt visszaírjuk a már elmentett AI döntés
+                # bejegyzésbe, hogy a felületen is látszódjon, miért nem lett
+                # belőle valós kereskedés (korábban ez csak a szerver logban
+                # volt látható, a felhasználó számára láthatatlanul).
+                skip_reason = await self.execute_trade(symbol, decision, market_data, account_info)
+                if skip_reason:
+                    self._annotate_last_decision(symbol, skip_reason)
 
             logger.info(f"✅ [{symbol}] Trading loop befejezve - Döntés: {decision['action']}")
 
@@ -710,6 +718,30 @@ class AITradingAdvisor:
                 os.replace(tmp_path, self.ai_decisions_file)
             except (OSError, json.JSONDecodeError) as e:
                 logger.error(f"AI döntés mentési hiba: {e}")
+
+    def _annotate_last_decision(self, symbol: str, execution_note: str, max_entries: int = 50):
+        """A legutóbb, ehhez a szimbólumhoz elmentett AI döntés bejegyzés
+        kiegészítése egy 'execution_note' mezővel, amikor execute_trade
+        csendben kihagyta a végrehajtást (pl. fedezethiány, limit elérve).
+        Enélkül a felhasználó a felületen csak annyit lát, hogy az AI
+        BUY/SELL-t javasolt, azt nem, hogy valójában nem lett belőle
+        megbízás."""
+        with self._ai_decisions_lock:
+            try:
+                if not os.path.exists(self.ai_decisions_file):
+                    return
+                with open(self.ai_decisions_file, 'r') as f:
+                    decisions = json.load(f)
+                for entry in reversed(decisions):
+                    if entry.get('symbol') == symbol and 'execution_note' not in entry:
+                        entry['execution_note'] = execution_note
+                        break
+                tmp_path = f"{self.ai_decisions_file}.tmp"
+                with open(tmp_path, 'w') as f:
+                    json.dump(decisions, f)
+                os.replace(tmp_path, self.ai_decisions_file)
+            except (OSError, json.JSONDecodeError) as e:
+                logger.error(f"AI döntés annotálási hiba: {e}")
 
     def _record_trade_history(
         self,
@@ -1228,17 +1260,27 @@ Provide ONLY the JSON, no other text.
             market_data: Piaci adatok
             account_info: Számla információk
         """
+        """
+        Returns:
+            Optional[str]: None, ha a döntés végrehajtásra (sikeres vagy
+                elutasított megbízásra) került - ezeket _record_trade_history
+                már naplózza. Egy rövid, felhasználóbarát szöveg, ha a
+                döntést CSENDBEN, megbízás-küldés nélkül kihagytuk (pl.
+                limit/fedezethiány) - ezt a hívó visszaírja az AI döntés
+                bejegyzésbe, hogy a felületen is látszódjon.
+        """
         try:
             # Kockázatkezelés ellenőrzése
             positions = await self.mcp_server.get_positions()
             if not self.risk_manager.can_open_position(len(positions)):
+                msg = f"Kihagyva: elérte a maximum nyitott pozíciók számát ({len(positions)})"
                 logger.warning(f"⚠️ [{symbol}] Maximum nyitott pozíciók száma elérve")
-                return
+                return msg
 
             # Confidence threshold
             if decision['confidence'] < 0.6:
                 logger.info(f"⚠️ [{symbol}] Alacsony confidence ({decision['confidence']:.2f}), skip trade")
-                return
+                return f"Kihagyva: alacsony bizonyosság ({decision['confidence']:.2f})"
 
             action = decision['action']
 
@@ -1303,7 +1345,7 @@ Provide ONLY the JSON, no other text.
                     f"⚠️ [{symbol}] Nincs elég szabad fedezet egy új pozícióhoz "
                     f"(lekötött fedezet: ${used_margin:.2f}), trade kihagyva"
                 )
-                return
+                return f"Kihagyva: nincs elég szabad fedezet (lekötve: ${used_margin:.2f})"
 
             # Megbízás leadása (volume mikroegységben -> lot konverzió)
             # A kockázat-alapú méretezés nem ismeri a brókernél elérhető

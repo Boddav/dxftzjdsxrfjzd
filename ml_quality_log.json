@@ -31,14 +31,24 @@
       "created_at": "2026-07-10T11:08:23.387704+00:00"
     },
     {
-      "id": "a182da6fe59540a796e0d3b960105c19",
+      "id": "0988c5b11f004a40b55a2775de9aacb7",
       "symbol": "XAUUSD",
-      "signal": "BUY",
-      "probability_up": 0.657,
-      "reference_timestamp": "2026-07-10T12:15:00",
-      "reference_close": 4109.19,
-      "target_timestamp": "2026-07-10T12:30:00",
-      "created_at": "2026-07-10T12:21:27.721522+00:00"
+      "signal": "SELL",
+      "probability_up": 0.12,
+      "reference_timestamp": "2026-07-10T12:45:00",
+      "reference_close": 4101.73,
+      "target_timestamp": "2026-07-10T13:00:00",
+      "created_at": "2026-07-10T12:51:29.761135+00:00"
+    },
+    {
+      "id": "d2b43192cde243bea93c6def478d5ea2",
+      "symbol": "XAUUSD",
+      "signal": "SELL",
+      "probability_up": 0.186,
+      "reference_timestamp": "2026-07-10T12:50:00",
+      "reference_close": 4100.36,
+      "target_timestamp": "2026-07-10T13:05:00",
+      "created_at": "2026-07-10T12:55:27.540554+00:00"
     }
   ],
   "resolved": [
@@ -3408,6 +3418,19 @@
       "resolved_at": "2026-07-10T12:21:27.591359+00:00",
       "actual_up": true,
       "correct": true
+    },
+    {
+      "id": "a182da6fe59540a796e0d3b960105c19",
+      "symbol": "XAUUSD",
+      "signal": "BUY",
+      "probability_up": 0.657,
+      "reference_timestamp": "2026-07-10T12:15:00",
+      "reference_close": 4109.19,
+      "target_timestamp": "2026-07-10T12:30:00",
+      "created_at": "2026-07-10T12:21:27.721522+00:00",
+      "resolved_at": "2026-07-10T12:51:29.687675+00:00",
+      "actual_up": false,
+      "correct": false
     }
   ]
 }

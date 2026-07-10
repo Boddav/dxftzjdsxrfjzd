@@ -64,6 +64,36 @@ async function loadAvailableSymbols() {
     }
 }
 
+// Szimbólum kategória besorolása név-minta alapján. A cTrader szimbólum-
+// lista (get_symbols_list) csak a nevet adja vissza, kategória-azonosítót
+// nem - ezért itt, kliens oldalon, egyszerű minta-illesztéssel soroljuk be
+// a leggyakoribb eszközosztályokba. Amit egyik minta sem talál el, az az
+// "Egyéb" csoportba kerül, hogy semmi ne tűnjön el a listából.
+// FONTOS: a forex teszt (pontosan 6, nagybetűs ISO devizakód, pl. USDCAD)
+// megelőzi a kripto/index mintákat, mert azok token-illesztése (BTC, USDT,
+// stb.) tévesen egyezhetne egy forex pár egy részletére (pl. "USDC" a
+// USDCAD-ban) - a sorrend és a forex korai kizárása ezt kizárja.
+const _METALS_RE = /^X(AU|AG|PT|PD)/i;
+const _CRYPTO_RE = /(BTC|ETH|XRP|LTC|BCH|SOL|ADA|DOGE|DOT)/i;
+const _SYMBOL_CATEGORIES = [
+    { key: 'metals', label: '🥇 Fémek', test: sym => _METALS_RE.test(sym) },
+    { key: 'crypto', label: '🪙 Kripto', test: sym => _CRYPTO_RE.test(sym) },
+    // Forex csak azután, hogy a fém/kripto mintákat kizártuk - egy 6 nagybetűs
+    // kód (pl. BTCUSD, USDCAD) önmagában nem különbözteti meg ezeket.
+    { key: 'forex', label: '💱 Forex', test: sym => /^[A-Z]{6}$/.test(sym) && !_METALS_RE.test(sym) && !_CRYPTO_RE.test(sym) },
+    { key: 'indices', label: '📈 Indexek', test: sym => /(SPX|NAS|DOW|DAX|FTSE|NIKKEI|US30|US500|USTEC|DE30|DE40|UK100|JP225|CHINA50|HK50)/i.test(sym) },
+];
+const _CATEGORY_ORDER = ['forex', 'metals', 'crypto', 'indices', 'other'];
+const _CATEGORY_LABELS = Object.fromEntries(_SYMBOL_CATEGORIES.map(c => [c.key, c.label]));
+_CATEGORY_LABELS.other = '🔹 Egyéb';
+
+function _categorizeSymbol(sym) {
+    for (const cat of _SYMBOL_CATEGORIES) {
+        if (cat.test(sym)) return cat.key;
+    }
+    return 'other';
+}
+
 function renderSymbols() {
     const listEl = document.getElementById('symbolsList');
     const query = (document.getElementById('symbolSearch').value || '').trim().toUpperCase();
@@ -83,20 +113,44 @@ function renderSymbols() {
         return;
     }
 
+    // Kategóriánként csoportosítva, minden csoport a saját sorrendjében,
+    // ábécé szerint rendezve - így pl. az összes forex pár egy blokkban van,
+    // nem keverve a fémekkel/kriptóval/indexekkel.
+    const grouped = {};
     for (const sym of filtered) {
-        const label = document.createElement('label');
-        label.className = 'checkbox-item';
+        const cat = _categorizeSymbol(sym);
+        (grouped[cat] = grouped[cat] || []).push(sym);
+    }
 
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.name = 'symbol';
-        input.value = sym;
-        input.checked = _selectedSymbols.has(sym);
-        input.addEventListener('change', () => onSymbolToggle(input));
+    for (const cat of _CATEGORY_ORDER) {
+        const symbols = grouped[cat];
+        if (!symbols || !symbols.length) continue;
+        symbols.sort();
 
-        label.appendChild(input);
-        label.appendChild(document.createTextNode(sym));
-        listEl.appendChild(label);
+        const heading = document.createElement('div');
+        heading.className = 'symbol-category-heading';
+        heading.textContent = `${_CATEGORY_LABELS[cat]} (${symbols.length})`;
+        listEl.appendChild(heading);
+
+        const group = document.createElement('div');
+        group.className = 'symbol-category-group';
+
+        for (const sym of symbols) {
+            const label = document.createElement('label');
+            label.className = 'checkbox-item';
+
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.name = 'symbol';
+            input.value = sym;
+            input.checked = _selectedSymbols.has(sym);
+            input.addEventListener('change', () => onSymbolToggle(input));
+
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(sym));
+            group.appendChild(label);
+        }
+        listEl.appendChild(group);
     }
 }
 

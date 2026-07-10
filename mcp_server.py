@@ -130,8 +130,14 @@ class CTraderMCPServer:
             host = self.LIVE_HOST if self.is_live else self.DEMO_HOST
             logger.info(f"🔌 Csatlakozás: {host}")
 
-            # WebSocket kapcsolat
-            self.ws = await connect(host)
+            # WebSocket kapcsolat. Az alapértelmezett ping_timeout=20s túl
+            # szoros: ha a folyamat éppen egy blokkoló hívást végez (pl.
+            # szinkron Claude SDK hívás nem asyncio.to_thread-del, vagy egy
+            # lassú disk write), a pong válasz csúszhat, és a könyvtár
+            # 1011 keepalive ping timeout-tal zárja a kapcsolatot - ez
+            # önmagában újracsatlakozik, de feleslegesen szakítja meg az
+            # aktív kéréseket. Nagyobb tűréssel ritkábban fordul elő.
+            self.ws = await connect(host, ping_interval=20, ping_timeout=45)
             self.connected = True
             logger.info("✅ WebSocket kapcsolat létrejött")
 

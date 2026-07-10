@@ -218,6 +218,19 @@ async function loadAiDecisions() {
                 // injektálás az admin felületen.
                 tdReasoning.textContent = d.reasoning || '-';
 
+                // Ha az AI BUY/SELL-t javasolt, de a végrehajtás csendben
+                // kihagyta (pl. fedezethiány, limit elérve), ezt korábban
+                // csak a szerver log mutatta - itt egy jól látható jelzéssel
+                // egészítjük ki a döntést, hogy a felhasználó tudja, miért
+                // nem lett belőle valós megbízás.
+                if (d.execution_note) {
+                    const noteBadge = document.createElement('span');
+                    noteBadge.className = 'execution-note-badge';
+                    noteBadge.textContent = d.execution_note;
+                    tdReasoning.appendChild(document.createElement('br'));
+                    tdReasoning.appendChild(noteBadge);
+                }
+
                 tr.append(tdTime, tdSymbol, tdAction, tdConfidence, tdReasoning);
                 tbody.appendChild(tr);
             });
