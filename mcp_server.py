@@ -64,6 +64,8 @@ class CTraderMCPServer:
     PROTO_OA_CLOSE_POSITION_REQ = 2111
     PROTO_OA_GET_ACCOUNT_LIST_BY_ACCESS_TOKEN_REQ = 2149
     PROTO_OA_GET_ACCOUNT_LIST_BY_ACCESS_TOKEN_RES = 2150
+    PROTO_OA_EXPECTED_MARGIN_REQ = 2139
+    PROTO_OA_EXPECTED_MARGIN_RES = 2140
 
     def __init__(self, credentials_path: str = "credentials.json"):
         """
@@ -346,6 +348,74 @@ class CTraderMCPServer:
         details = details_list[0]
         self.symbol_details_cache[symbol_id] = details
         return details
+
+    async def get_expected_margin(self, symbol: str, volumes_lots: List[float]) -> Optional[Dict[str, Any]]:
+        """
+        Szerver-oldali fedezetigény-becslés lekérése (ProtoOAExpectedMarginReq)
+        egy vagy több hipotetikus volumenre. Ez a helyes, bróker-specifikus
+        tőkeáttételt (és bármilyen tiered/dinamikus leverage szabályt) is
+        figyelembe veszi - NEM kell nekünk kliens-oldalon feltételezett
+        tőkeáttétellel (CTRADER_LEVERAGE env) újraszámolni a fedezetet, ahogy
+        korábban tettük. Lásd a "ne magunk számoljuk a P&L-t, kérdezzük meg a
+        szervert" mintát (get_position_unrealized_pnl) - ugyanez a logika itt.
+
+        Args:
+            symbol: szimbólum neve
+            volumes_lots: kipróbálandó lot-méretek listája
+
+        Returns:
+            Dict {volume_lots: {'buy_margin': float, 'sell_margin': float}}
+            vagy None, ha ezt a brókert/szimbólumot a szerver nem támogatja
+            ehhez az üzenethez (nem minden bróker/hídszolgáltató implementálja
+            hiánytalanul a teljes Open API-t) - ez esetben a hívónak a
+            konfigurált CTRADER_LEVERAGE-re kell visszaesnie.
+        """
+        try:
+            if not self.authenticated:
+                await self.connect()
+
+            symbol_id = await self.get_symbol_id(symbol)
+            if not symbol_id:
+                return None
+
+            # A ProtoOAExpectedMarginReq volume mezője ugyanabban a
+            # mikroegység-skálában várja az értéket, mint a new_order
+            # (lot * 10,000,000) - lásd place_order "cTrader API: volume = lot
+            # * 10,000,000" megjegyzését.
+            volume_units = [int(round(v * 10_000_000)) for v in volumes_lots]
+
+            response = await self._send_request(
+                self.PROTO_OA_EXPECTED_MARGIN_REQ,
+                {
+                    'ctidTraderAccountId': self.account_id,
+                    'symbolId': symbol_id,
+                    'volume': volume_units,
+                }
+            )
+
+            if response['payloadType'] != self.PROTO_OA_EXPECTED_MARGIN_RES:
+                logger.warning(f"⚠️ [{symbol}] ExpectedMargin nem támogatott válasz: {response.get('payloadType')}")
+                return None
+
+            payload = response['payload']
+            money_digits = payload.get('moneyDigits', 2)
+            scale = 10 ** money_digits
+            margins = payload.get('margin', [])
+
+            result: Dict[float, Dict[str, float]] = {}
+            for m in margins:
+                vol_lots = (m.get('volume', 0) or 0) / 10_000_000
+                result[vol_lots] = {
+                    'buy_margin': (m.get('buyMargin', 0) or 0) / scale,
+                    'sell_margin': (m.get('sellMargin', 0) or 0) / scale,
+                }
+            return result
+        except Exception as e:
+            # Nem minden bróker/híd kínálja ezt teljeskörűen - csendes
+            # fallback, a hívó ilyenkor a CTRADER_LEVERAGE becslésre esik
+            # vissza, nem hibázik el a teljes trade-et.
+            logger.warning(f"⚠️ [{symbol}] ExpectedMargin lekérés sikertelen, becsült tőkeáttételre esünk vissza: {e}")
+            return None
 
     async def get_market_data(self, symbol: str = "XAUUSD") -> Dict[str, Any]:
         """

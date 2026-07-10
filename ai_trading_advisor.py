@@ -310,7 +310,8 @@ class RiskManager:
         entry_price: float,
         stop_loss: float,
         symbol: str = "XAUUSD",
-        used_margin: float = 0.0
+        used_margin: float = 0.0,
+        expected_margin_per_lot: Optional[float] = None,
     ) -> int:
         """
         Pozíció méret számítása kockázat alapján, szimbólumra szabott
@@ -326,6 +327,11 @@ class RiskManager:
                 pozíció mérete figyelmen kívül hagyná a már elkötelezett
                 fedezetet, és több nyitott pozíció esetén is NOT_ENOUGH_MONEY
                 hibát okozhatna.
+            expected_margin_per_lot: ha a hívó lekérte a szervertől a valós,
+                bróker-specifikus fedezetigényt 1 lotra (ProtoOAExpectedMarginReq
+                - lásd mcp_server.get_expected_margin), akkor ezt kell átadni.
+                Nem minden bróker/híd támogatja ezt az üzenetet - ha None, a
+                CTRADER_LEVERAGE konfigurációs becslésre esünk vissza.
 
         Returns:
             int: Volumen mikroegységben, vagy 0, ha még a bróker minimuma
@@ -347,8 +353,17 @@ class RiskManager:
         # Test gomb fix, kicsi (0.01 lot) mérete mindig belefért a fedezetbe.
         # Itt korlátozzuk a lotméretet a becsült fedezetigény alapján is,
         # a már nyitott pozíciók fedezetét is figyelembe véve.
-        notional_per_lot = entry_price * contract_size
-        margin_per_lot = notional_per_lot / self.leverage if self.leverage > 0 else notional_per_lot
+        #
+        # margin_per_lot elsődlegesen a szervertől kapott valós értékből jön
+        # (expected_margin_per_lot) - ez már a bróker tényleges tőkeáttételét
+        # (és bármilyen tiered/dinamikus szabályát) tükrözi. Csak ha ez nem
+        # elérhető (a bróker/híd nem támogatja a ProtoOAExpectedMarginReq-et),
+        # esünk vissza a CTRADER_LEVERAGE konfigurációs becslésre.
+        if expected_margin_per_lot is not None and expected_margin_per_lot > 0:
+            margin_per_lot = expected_margin_per_lot
+        else:
+            notional_per_lot = entry_price * contract_size
+            margin_per_lot = notional_per_lot / self.leverage if self.leverage > 0 else notional_per_lot
         free_margin_budget = max(account_balance * self.MARGIN_SAFETY_FACTOR - used_margin, 0)
         margin_based_lots = free_margin_budget / margin_per_lot if margin_per_lot > 0 else 0
 
@@ -1282,7 +1297,14 @@ Provide ONLY the JSON, no other text.
                 logger.info(f"⚠️ [{symbol}] Alacsony confidence ({decision['confidence']:.2f}), skip trade")
                 return f"Kihagyva: alacsony bizonyosság ({decision['confidence']:.2f})"
 
-            action = decision['action']
+            action = (decision.get('action') or '').strip().upper()
+            if action not in ('BUY', 'SELL'):
+                # Ismeretlen/hibás action itt már nem HOLD-ként kezelendő (azt
+                # a hívó kiszűrte), hanem védekező hiba - anélkül, hogy csendben
+                # a SELL ágra esnénk (pl. kisbetűs "buy" korábban implicit
+                # SELL-ként futott volna le a != 'BUY' ág miatt).
+                logger.error(f"⚠️ [{symbol}] Ismeretlen AI action érték: {decision.get('action')!r}, trade kihagyva")
+                return f"Kihagyva: érvénytelen AI döntés ({decision.get('action')!r})"
 
             # Entry price
             entry_price = market_data['ask'] if action == 'BUY' else market_data['bid']
@@ -1331,13 +1353,33 @@ Provide ONLY the JSON, no other text.
                 })
             used_margin = self.risk_manager.estimate_used_margin(positions_for_margin)
 
+            # Valós, bróker-specifikus fedezetigény lekérése a szervertől
+            # (1 lotra) - ez a helyes tőkeáttételt használja, ahelyett hogy mi
+            # feltételeznénk (CTRADER_LEVERAGE) egyet. Nem minden bróker/híd
+            # támogatja ezt teljeskörűen (lásd get_expected_margin docstring),
+            # ilyenkor None-t kapunk és calculate_position_size a
+            # CTRADER_LEVERAGE-becslésre esik vissza.
+            expected_margin_per_lot = None
+            try:
+                margin_quote = await self.mcp_server.get_expected_margin(symbol, [1.0])
+                if margin_quote and 1.0 in margin_quote:
+                    per_lot = margin_quote[1.0]
+                    # BUY/SELL fedezetigénye eltérhet (pl. eltérő swap/leverage
+                    # profil) - a nyitandó irányhoz tartozót használjuk.
+                    expected_margin_per_lot = (
+                        per_lot['buy_margin'] if action == 'BUY' else per_lot['sell_margin']
+                    )
+            except Exception as e:
+                logger.warning(f"⚠️ [{symbol}] ExpectedMargin lekérés hiba, becsült tőkeáttételre esünk vissza: {e}")
+
             # Pozíció méret számítása
             volume = self.risk_manager.calculate_position_size(
                 account_balance=account_info['balance'],
                 entry_price=entry_price,
                 stop_loss=stop_loss,
                 symbol=symbol,
-                used_margin=used_margin
+                used_margin=used_margin,
+                expected_margin_per_lot=expected_margin_per_lot,
             )
 
             if volume <= 0:

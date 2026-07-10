@@ -619,6 +619,7 @@ def api_config():
             'account_id': os.getenv('CTRADER_ACCOUNT_ID', ''),
             'max_positions': os.getenv('MAX_OPEN_POSITIONS', '3'),
             'risk_per_trade': os.getenv('MAX_RISK_PER_TRADE', '0.02'),
+            'leverage': os.getenv('CTRADER_LEVERAGE', '100'),
             'cycle_interval': os.getenv('TRADING_CYCLE_SECONDS', '60'),
             'symbol_delay': os.getenv('TRADING_SYMBOL_DELAY_SECONDS', '15'),
             'available_symbols': AVAILABLE_SYMBOLS,
@@ -649,6 +650,7 @@ def api_config():
                 'anthropic_api_key':     'ANTHROPIC_API_KEY',
                 'max_positions':         'MAX_OPEN_POSITIONS',
                 'risk_per_trade':        'MAX_RISK_PER_TRADE',
+                'leverage':              'CTRADER_LEVERAGE',
                 'cycle_interval':        'TRADING_CYCLE_SECONDS',
                 'symbol_delay':          'TRADING_SYMBOL_DELAY_SECONDS',
             }
