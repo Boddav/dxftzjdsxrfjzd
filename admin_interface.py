@@ -1423,6 +1423,7 @@ if __name__ == '__main__':
     # szerver-folyamatban van beállítva, így itt kerüljük el a bot dupla indítását.
     if not debug or os.getenv('WERKZEUG_RUN_MAIN') == 'true':
         _resume_bot_if_needed()
+        arbitrage_engine.engine.resume_if_needed()
 
     print(f"""
 ╔════════════════════════════════════════════╗

@@ -48,6 +48,7 @@ BROKERS_FILE = 'arbitrage_brokers.json'
 CONFIG_FILE = 'arbitrage_config.json'
 STATE_FILE = 'arbitrage_state.json'
 LOG_FILE = 'arbitrage_log.json'
+RUNNING_FLAG_FILE = 'arbitrage_running.json'
 CREDENTIALS_PREFIX = 'credentials_arb_'
 
 MAX_BROKERS = 5
@@ -170,6 +171,32 @@ class ArbitrageEngine:
     def is_running(self) -> bool:
         return self._running
 
+    def _save_running_flag(self, running: bool):
+        """Az arbitrázs motor fut/nem-fut állapotának lementése, hogy egy
+        szerver-újraindítás (deploy, workflow restart, crash) után
+        automatikusan visszaálljon - ugyanaz a mintázat, mint a fő bot
+        _save_bot_state/_resume_bot_if_needed párosánál. Enélkül a motor
+        minden folyamat-újraindításkor csendben, véglegesen leállt, ami
+        a felhasználó számára úgy tűnt, mintha "rendszeresen leállna"."""
+        try:
+            _write_json(RUNNING_FLAG_FILE, {'running': running})
+        except OSError as e:
+            logger.error(f"Arbitrázs futási állapot mentési hiba: {e}")
+
+    def resume_if_needed(self):
+        """Induláskor hívandó: ha a motor a legutóbbi leállás előtt futott,
+        automatikusan újraindítja. Bármilyen hiba itt logolva legyen, de
+        sose akadályozza meg a szerver elindulását."""
+        try:
+            flag = _read_json(RUNNING_FLAG_FILE, {'running': False})
+            if not flag.get('running'):
+                return
+            self.start()
+            logger.info("🔄 Arbitrázs motor automatikusan visszaindítva (korábban futott a szerver újraindítása előtt)")
+        except Exception as e:
+            logger.warning(f"Arbitrázs motor automatikus visszaindítása sikertelen: {e}")
+            self._save_running_flag(False)
+
     def start(self):
         """
         Indítás/leállítás kizárólag a _lifecycle_lock birtokában történhet,
@@ -199,6 +226,7 @@ class ArbitrageEngine:
                     )
 
             self._running = True
+            self._save_running_flag(True)
             self._thread = threading.Thread(target=self._run_loop, name="arbitrage-engine", daemon=True)
             self._thread.start()
             logger.info(f"🔀 Arbitrázs motor elindult ({len(brokers)} bróker)")
@@ -209,6 +237,7 @@ class ArbitrageEngine:
         indíthasson párhuzamos, második ciklust."""
         with self._lifecycle_lock:
             self._running = False
+            self._save_running_flag(False)
             loop = self._loop
             stop_event = self._stop_event
             if loop and stop_event:
@@ -232,14 +261,25 @@ class ArbitrageEngine:
         asyncio.set_event_loop(local_loop)
         local_stop_event = asyncio.Event()
         self._stop_event = local_stop_event
+        crashed = False
         try:
             local_loop.run_until_complete(self._main(local_stop_event))
         except Exception as e:
+            crashed = True
             self.last_error = str(e)
             logger.error(f"❌ Arbitrázs motor hiba, leállt: {e}")
         finally:
             local_loop.run_until_complete(self._disconnect_all())
             self._running = False
+            # Ha a ciklus VÁRATLANUL (kivétellel) állt le - nem a stop()
+            # explicit hívása miatt -, a futási állapotot is false-ra
+            # állítjuk. Enélkül a perzisztált flag "true" maradna, és minden
+            # következő szerver-újraindításkor újra megpróbálná indítani a
+            # (feltehetően ugyanúgy elhasaló) motort - végtelen crash-loopot
+            # okozva ahelyett, hogy egyszerűen leállva maradna, amíg valaki
+            # (a hibát elhárítva) manuálisan újra nem indítja.
+            if crashed:
+                self._save_running_flag(False)
             local_loop.close()
             # Csak akkor nullázzuk a megosztott referenciákat, ha még mindig
             # ez a (befejeződő) loop/esemény van beállítva - ha egy új

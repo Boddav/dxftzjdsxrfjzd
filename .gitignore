@@ -69,3 +69,4 @@ temp/
 trade_history.json
 backtest_results/
 bot_state.json
+arbitrage_running.json
