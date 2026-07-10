@@ -19,6 +19,16 @@
       "reference_close": 4123.57,
       "target_timestamp": "2026-07-09T21:10:00",
       "created_at": "2026-07-09T21:30:15.339903+00:00"
+    },
+    {
+      "id": "5194cb5005b8476ea14cb6dcc529e2d6",
+      "symbol": "XAUUSD",
+      "signal": "SELL",
+      "probability_up": 0.323,
+      "reference_timestamp": "2026-07-10T08:40:00",
+      "reference_close": 4101.82,
+      "target_timestamp": "2026-07-10T08:55:00",
+      "created_at": "2026-07-10T08:48:09.455759+00:00"
     }
   ],
   "resolved": [
@@ -3308,6 +3318,45 @@
       "target_timestamp": "2026-07-09T20:10:00",
       "created_at": "2026-07-09T20:00:58.429116+00:00",
       "resolved_at": "2026-07-09T21:20:51.143649+00:00",
+      "actual_up": false,
+      "correct": true
+    },
+    {
+      "id": "767abc57c19d4852bbd58493847880a6",
+      "symbol": "XAUUSD",
+      "signal": "BUY",
+      "probability_up": 0.822,
+      "reference_timestamp": "2026-07-10T03:50:00",
+      "reference_close": 4120.64,
+      "target_timestamp": "2026-07-10T04:05:00",
+      "created_at": "2026-07-10T03:57:07.655466+00:00",
+      "resolved_at": "2026-07-10T06:26:26.388876+00:00",
+      "actual_up": false,
+      "correct": false
+    },
+    {
+      "id": "dd3ceaa69984436896a2e95f7c257cc0",
+      "symbol": "XAUUSD",
+      "signal": "SELL",
+      "probability_up": 0.208,
+      "reference_timestamp": "2026-07-10T06:20:00",
+      "reference_close": 4117.71,
+      "target_timestamp": "2026-07-10T06:35:00",
+      "created_at": "2026-07-10T06:26:26.470795+00:00",
+      "resolved_at": "2026-07-10T08:48:09.156409+00:00",
+      "actual_up": false,
+      "correct": true
+    },
+    {
+      "id": "65976ce6e22e4d45a560a1002304d8f4",
+      "symbol": "XAUUSD",
+      "signal": "SELL",
+      "probability_up": 0.208,
+      "reference_timestamp": "2026-07-10T06:20:00",
+      "reference_close": 4117.71,
+      "target_timestamp": "2026-07-10T06:35:00",
+      "created_at": "2026-07-10T06:26:41.501896+00:00",
+      "resolved_at": "2026-07-10T08:48:09.156422+00:00",
       "actual_up": false,
       "correct": true
     }

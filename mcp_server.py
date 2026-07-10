@@ -62,6 +62,8 @@ class CTraderMCPServer:
     PROTO_OA_GET_POSITION_UNREALIZED_PNL_RES = 2188
     PROTO_OA_AMEND_POSITION_SLTP_REQ = 2110
     PROTO_OA_CLOSE_POSITION_REQ = 2111
+    PROTO_OA_GET_ACCOUNT_LIST_BY_ACCESS_TOKEN_REQ = 2149
+    PROTO_OA_GET_ACCOUNT_LIST_BY_ACCESS_TOKEN_RES = 2150
 
     def __init__(self, credentials_path: str = "credentials.json"):
         """
@@ -1019,6 +1021,108 @@ MCP_TOOLS = [
         }
     }
 ]
+
+
+async def resolve_ctrader_account(client_id: str, client_secret: str, access_token: str,
+                                   preferred_account_id: Optional[str] = None):
+    """
+    Az OAuth folyamat után elérhető cTrader számla(k) lekérése az
+    access token alapján, a ProtoOAGetAccountListByAccessTokenReq
+    WebSocket üzenettel (NEM létezik erre REST végpont - a korábbi
+    'https://openapi.ctrader.com/apps/accounts' hívás 404-et adott,
+    ezért a számla azonosítás mindig a fail-closed 'live' ágra esett).
+
+    Mivel a demo/live szétválasztás a hoszt szintjén történik (más a
+    WebSocket végpont), mindkét hosztot kipróbáljuk - amelyik
+    visszaad legalább egy accountId-t, az határozza meg a demo/live
+    jelleget és a végleges accountId-t.
+
+    Args:
+        preferred_account_id: ha megadott és szerepel a visszakapott
+            listában, ezt választjuk (nem az első találatot) - hasznos,
+            ha a felhasználó egy konkrét, korábban ismert számlát akar
+            újra hitelesíteni.
+
+    Returns:
+        (account_id: str, is_live: bool) - dob kivételt, ha semelyik
+        hoszton nem sikerül accountId-t lekérni.
+    """
+    # Mindkét hosztot végigjárjuk és összegyűjtjük az összes találatot,
+    # mielőtt döntenénk - korábban az első sikeres hoszt (demo) azonnal
+    # visszatért, így egy csak a live hoszton létező preferred_account_id
+    # egyezés soha nem derülhetett ki.
+    all_entries = []  # list of (account_id, is_live, accounts_raw_entry)
+    last_error: Optional[Exception] = None
+    for host, is_live in ((CTraderMCPServer.DEMO_HOST, False), (CTraderMCPServer.LIVE_HOST, True)):
+        ws = None
+        try:
+            ws = await connect(host)
+
+            app_auth_msg = {
+                'clientMsgId': str(uuid.uuid4()),
+                'payloadType': CTraderMCPServer.PROTO_OA_APPLICATION_AUTH_REQ,
+                'payload': {'clientId': client_id, 'clientSecret': client_secret}
+            }
+            await ws.send(json.dumps(app_auth_msg))
+            app_auth_resp = json.loads(await asyncio.wait_for(ws.recv(), timeout=15))
+            if app_auth_resp.get('payloadType') != CTraderMCPServer.PROTO_OA_APPLICATION_AUTH_RES:
+                raise Exception(f"Application auth hiba ({host}): {app_auth_resp}")
+
+            list_msg = {
+                'clientMsgId': str(uuid.uuid4()),
+                'payloadType': CTraderMCPServer.PROTO_OA_GET_ACCOUNT_LIST_BY_ACCESS_TOKEN_REQ,
+                'payload': {'accessToken': access_token}
+            }
+            await ws.send(json.dumps(list_msg))
+            list_resp = json.loads(await asyncio.wait_for(ws.recv(), timeout=15))
+            if list_resp.get('payloadType') != CTraderMCPServer.PROTO_OA_GET_ACCOUNT_LIST_BY_ACCESS_TOKEN_RES:
+                raise Exception(f"Számlalista lekérési hiba ({host}): {list_resp}")
+
+            # A válasz kulcsa 'ctidTraderAccount' - ez a mezo tartalmazza a
+            # tényleges ctidTraderAccountId-t (amit az AccountAuthReq elvár)
+            # ÉS egy 'isLive' mezőt fiókonként (nem kell találgatni/host
+            # alapján fail-close-olni). FONTOS: a 'traderLogin' mező a
+            # bróker-specifikus emberi bejelentkezési szám (amit a
+            # felhasználó a config.json/secrets-be korábban hibásan
+            # accountId-ként mentett) - ez NEM azonos a ctidTraderAccountId-vel,
+            # és az AccountAuthReq ezt nem fogadja el (CH_CTID_TRADER_ACCOUNT_NOT_FOUND).
+            accounts = list_resp.get('payload', {}).get('ctidTraderAccount') or []
+            for entry in accounts:
+                if isinstance(entry, dict) and entry.get('ctidTraderAccountId') is not None:
+                    all_entries.append((
+                        str(entry['ctidTraderAccountId']),
+                        bool(entry.get('isLive', is_live)),
+                        str(entry.get('traderLogin')) if entry.get('traderLogin') is not None else None,
+                    ))
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Számla lekérés sikertelen ({host}): {e}")
+        finally:
+            if ws is not None:
+                try:
+                    await ws.close()
+                except Exception:
+                    pass
+
+    if not all_entries:
+        raise Exception(f"Nem található cTrader számla ezzel az access tokennel. Utolsó hiba: {last_error}")
+
+    if preferred_account_id:
+        # A felhasználó korábban megadott azonosítója lehet a
+        # ctidTraderAccountId VAGY a traderLogin - mindkettőt elfogadjuk,
+        # és mindkét hoszt teljes eredményét figyelembe vesszük.
+        for acc_id, acc_is_live, _trader_login in all_entries:
+            if str(preferred_account_id) == acc_id:
+                return acc_id, acc_is_live
+        for acc_id, acc_is_live, trader_login in all_entries:
+            if trader_login == str(preferred_account_id):
+                return acc_id, acc_is_live
+
+    # Nincs preferált egyezés - az első demo számlát választjuk, ha van,
+    # egyébként az elsőt (konzisztensen a korábbi logikával).
+    demo_entry = next((e for e in all_entries if not e[1]), None)
+    chosen = demo_entry or all_entries[0]
+    return chosen[0], chosen[1]
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ from typing import Optional
 from ai_trading_advisor import AITradingAdvisor
 from ml_predictor import MLPredictor
 import backtest_engine
-from mcp_server import CTraderMCPServer
+from mcp_server import CTraderMCPServer, resolve_ctrader_account
 from mcp_connection_manager import run_shared
 import arbitrage_engine
 
@@ -34,13 +34,28 @@ SYMBOL_PATTERN = re.compile(r'^[A-Z0-9._]{2,20}$')
 
 load_dotenv()
 
-# config.json betöltése induláskor (felülírja a .env értékeit ha újabb)
+# config.json betöltése induláskor (felülírja a .env értékeit ha újabb).
+# FONTOS: a CTRADER_CLIENT_ID/CTRADER_CLIENT_SECRET SOHA nem jöhet a
+# config.json-ból - kizárólag a Replit Secrets (env) az egyetlen forrás.
+# Egy korábbi, config.json-ba mentett elavult Client ID felülírta a helyes
+# secretet, és a Client ID/Secret pár összeférhetetlensége miatt a cTrader
+# OAuth token-csere "Client credentials invalid" hibával elszállt - ezért
+# ezt a két kulcsot itt explicit kizárjuk, még akkor is, ha egy régi
+# config.json fájlban esetleg megmaradtak volna.
+_CONFIG_JSON_FORBIDDEN_KEYS = {'CTRADER_CLIENT_ID', 'CTRADER_CLIENT_SECRET'}
 _config_file = 'config.json'
 if os.path.exists(_config_file):
     with open(_config_file, 'r') as _f:
-        for _k, _v in json.load(_f).items():
-            if _v:
-                os.environ[_k] = _v
+        _loaded_config = json.load(_f)
+    _purged_legacy_keys = [k for k in _CONFIG_JSON_FORBIDDEN_KEYS if k in _loaded_config]
+    if _purged_legacy_keys:
+        for _k in _purged_legacy_keys:
+            _loaded_config.pop(_k, None)
+        with open(_config_file, 'w') as _f:
+            json.dump(_loaded_config, _f, indent=2)
+    for _k, _v in _loaded_config.items():
+        if _v and _k not in _CONFIG_JSON_FORBIDDEN_KEYS:
+            os.environ[_k] = _v
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SESSION_SECRET', os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production'))
@@ -621,6 +636,12 @@ def api_config():
             if os.path.exists(config_file):
                 with open(config_file, 'r') as f:
                     saved = json.load(f)
+            # A CTRADER_CLIENT_ID/SECRET SOHA nem kerülhet a config.json-ba -
+            # kizárólag a Replit Secrets az egyetlen forrás (lásd a fájl elején
+            # a startup betöltésnél lévő magyarázatot). Egy esetlegesen még itt
+            # maradt régi bejegyzést is töröljük, mielőtt visszaírnánk a fájlt.
+            for _forbidden in _CONFIG_JSON_FORBIDDEN_KEYS:
+                saved.pop(_forbidden, None)
 
             # Mezők frissítése (üres értékeket nem írjuk felül)
             field_map = {
@@ -644,6 +665,27 @@ def api_config():
                 else:
                     return jsonify({'success': False, 'message': f'Érvénytelen érték a(z) {form_key} mezőhöz.'}), 400
                 if val:
+                    if env_key == 'CTRADER_ACCOUNT_ID':
+                        # A felhasználó könnyen a bróker-specifikus 'traderLogin'
+                        # (emberi bejelentkezési szám, pl. 9007309) számot írhatja
+                        # be, nem a cTrader Open API által elvárt ctidTraderAccountId-t
+                        # (pl. 44533070) - ez korábban CH_CTID_TRADER_ACCOUNT_NOT_FOUND
+                        # hibával némán megakadályozta a bot indulását. Ha van
+                        # mentett credentials.json-unk, a beírt számot a valódi
+                        # accountId-ra fordítjuk (traderLogin vagy ctidTraderAccountId
+                        # egyaránt elfogadott bemenetként).
+                        try:
+                            resolved_id, resolved_live = resolve_ctrader_account_id_for_input(val)
+                            if resolved_id != val:
+                                logger.info(
+                                    f"ℹ️ Account ID '{val}' (traderLogin) automatikusan "
+                                    f"lefordítva ctidTraderAccountId-re: {resolved_id}"
+                                )
+                            val = resolved_id
+                            saved['CTRADER_IS_LIVE'] = resolved_live
+                            os.environ['CTRADER_IS_LIVE'] = str(resolved_live)
+                        except Exception as e:
+                            logger.warning(f"Account ID fordítás sikertelen, eredeti érték marad: {e}")
                     if env_key == 'TRADING_CYCLE_SECONDS':
                         # Alsó és felső korlát, hogy a felhasználó véletlenül
                         # se tudjon olyan gyakori ciklust beállítani, ami
@@ -1014,42 +1056,56 @@ def _exchange_code_for_tokens(code, redirect_uri=None, broker_name=None):
         'client_id': client_id,
         'client_secret': client_secret
     }, headers={'Accept': 'application/json'})
-    logger.info(f"cTrader token válasz [{resp.status_code}]: {resp.text}")
+    # FONTOS: a nyers válasz test accessToken/refreshToken-t tartalmaz - ezt
+    # SOHA nem logoljuk teljes egészében (naplófájlból kiszivárgó éles
+    # kereskedési jogosultságot adó token biztonsági kockázat). Csak a
+    # státuszkódot és a hibamezőket (errorCode/description) logoljuk.
     resp.raise_for_status()
     tokens = resp.json()
+    logger.info(
+        f"cTrader token válasz [{resp.status_code}] errorCode={tokens.get('errorCode')} "
+        f"description={tokens.get('description')}"
+    )
     # A cTrader camelCase (accessToken) VAGY snake_case (access_token) kulcsot is adhat
     access_token = tokens.get('accessToken') or tokens.get('access_token')
     refresh_token = tokens.get('refreshToken') or tokens.get('refresh_token')
     if not access_token:
-        raise ValueError(f"cTrader hibaválasz (nincs access token): {tokens}")
+        raise ValueError(f"cTrader hibaválasz (nincs access token): errorCode={tokens.get('errorCode')} "
+                          f"description={tokens.get('description')}")
     logger.info("✅ cTrader access token kapva")
 
-    # Account ID lekérése - a talált számla tényleges demo/live jellegét is
-    # eltároljuk (resolved_is_live), mert a credentials.json 'isLive' mezője
-    # ez alapján dönt a mcp_server.place_order/close_position tiltásáról -
-    # korábban ez a mező mindig hardkódolt False volt, ami LEHETŐVÉ TETTE,
-    # hogy egy éles (live) számla is "demo"-ként legyen elmentve, ha nincs
-    # demo számla a listában és az első (esetleg live) számlára esik a
-    # fallback. Ha nem sikerül egyértelműen megállapítani, biztonságból
-    # live-nak tekintjük (fail closed), ne demo-nak.
+    # Account ID lekérése a ProtoOAGetAccountListByAccessTokenReq WS üzenettel
+    # (lásd mcp_server.resolve_ctrader_account - nincs erre REST végpont).
+    # Ha ez sikertelen, NEM esünk vissza némán egy soha nem ellenőrzött,
+    # manuálisan beállított CTRADER_ACCOUNT_ID-ra (ez korábban egy hibás
+    # traderLogin/ctidTraderAccountId keveredést és fail-closed 'live'
+    # feltételezést okozott, ami CH_CTID_TRADER_ACCOUNT_NOT_FOUND hibával
+    # némán megakadályozta a bot indulását) - inkább azonnal, explicit
+    # hibával elszáll az OAuth folyamat, hogy a felhasználó tudjon róla.
     account_id = os.getenv('CTRADER_ACCOUNT_ID', '')
-    resolved_is_live = True
     try:
-        acc_resp = http_requests.get('https://openapi.ctrader.com/apps/accounts',
-                                     headers={'Authorization': f'Bearer {access_token}'})
-        acc_resp.raise_for_status()
-        acc_json = acc_resp.json()
-        # A cTrader a listát {"data": [...]} alá csomagolhatja
-        accounts = acc_json.get('data', acc_json) if isinstance(acc_json, dict) else acc_json
-        if accounts:
-            demo_acc = next((acc for acc in accounts if not acc.get('live', True)), None)
-            chosen = demo_acc or accounts[0]
-            account_id = str(chosen.get('accountId') or chosen.get('ctidTraderAccountId'))
-            resolved_is_live = bool(chosen.get('live', True))
+        # FONTOS: a cTrader Open API-nak NINCS 'https://openapi.ctrader.com/apps/accounts'
+        # REST végpontja (ez korábban mindig 404-et adott, ami miatt ez az ág mindig
+        # a kivétel-kezelő fail-closed 'live' ágra esett, és a manuálisan beállított,
+        # SOHA nem ellenőrzött account_id-t használta - ez okozta a
+        # CH_CTID_TRADER_ACCOUNT_NOT_FOUND hibát induláskor). A számlalistát a
+        # ProtoOAGetAccountListByAccessTokenReq WebSocket üzenettel kell lekérni,
+        # mind a demo, mind a live hoszton (lásd mcp_server.resolve_ctrader_account).
+        account_id, resolved_is_live = asyncio.run(
+            resolve_ctrader_account(client_id, client_secret, access_token,
+                                     preferred_account_id=account_id or None)
+        )
+        logger.info(f"✅ cTrader számla feloldva: {account_id} (live={resolved_is_live})")
     except Exception as e:
-        logger.warning(f"Account lekérés sikertelen, manuális ID-t használ: {e}")
-        # Ha nem tudjuk lekérdezni a számla típusát, nem feltételezzük demo-nak.
-        resolved_is_live = True
+        # NEM esünk vissza némán a manuális/soha nem ellenőrzött account_id-ra -
+        # ez korábban egy hibás (traderLogin, nem ctidTraderAccountId) értéket
+        # engedett át a rendszeren, ami csak a bot indításakor, egy nehezen
+        # visszakövethető CH_CTID_TRADER_ACCOUNT_NOT_FOUND hibával derült ki.
+        # Inkább azonnal, explicit hibával jelezzük a felhasználónak.
+        raise ValueError(
+            f"Nem sikerült lekérni a cTrader számla adatait (accountId, demo/live) "
+            f"a megadott access tokennel: {e}"
+        )
 
     if broker_name and resolved_is_live:
         raise ValueError(
@@ -1084,6 +1140,40 @@ def _exchange_code_for_tokens(code, redirect_uri=None, broker_name=None):
             json.dump(credentials, f, indent=2)
         logger.info("💾 credentials.json létrehozva")
     return credentials
+
+
+def resolve_ctrader_account_id_for_input(entered_value: str):
+    """
+    A Beállítások oldalon manuálisan beírt cTrader számlaazonosító
+    feloldása a valódi ctidTraderAccountId-ra.
+
+    A felhasználó könnyen a bróker-specifikus 'traderLogin' (emberi
+    bejelentkezési szám) értéket írhatja be a cTrader Open API által
+    valójában elvárt ctidTraderAccountId helyett - ez korábban némán
+    CH_CTID_TRADER_ACCOUNT_NOT_FOUND hibát okozott a bot indításakor.
+    Ehhez a meglévő, elmentett credentials.json Client ID/Secret/Access
+    Token adatait használjuk a ProtoOAGetAccountListByAccessTokenReq
+    lekéréshez (lásd mcp_server.resolve_ctrader_account).
+
+    Ha nincs még mentett credentials.json (első beállítás, OAuth előtt),
+    nem tudunk fordítani - ilyenkor az eredeti értéket adjuk vissza
+    változatlanul, hibát nem dobunk, mert a bot indítás előtt az
+    OAuth folyamat (_exchange_code_for_tokens) mindenképp lefut és ott
+    a helyes érték felülíródik.
+
+    Returns:
+        (account_id: str, is_live: bool)
+    """
+    if not os.path.exists('credentials.json'):
+        return entered_value, True
+    with open('credentials.json', 'r') as f:
+        creds = json.load(f)
+    return asyncio.run(
+        resolve_ctrader_account(
+            creds['clientId'], creds['clientSecret'], creds['accessToken'],
+            preferred_account_id=entered_value
+        )
+    )
 
 
 def _valid_broker_name(name: str) -> bool:
