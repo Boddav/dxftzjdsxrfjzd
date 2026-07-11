@@ -1020,15 +1020,18 @@ class AITradingAdvisor:
                     "it run to the original target?"
                 )
                 position_management_schema = """,
-    "position_management": {
-        "action": "HOLD" or "CLOSE" or "MOVE_SL",
-        "position_id": the Position ID from the list above this decision applies to,
-        "new_stop_loss": new stop loss price (ONLY required if action is MOVE_SL, e.g. to move to break-even or trail behind price),
-        "reasoning": "why you chose this action for the existing position"
-    } (if there are MULTIPLE open positions listed above, make "position_management" a JSON ARRAY of one such object per position instead of a single object)"""
+    "position_management": [
+        {
+            "action": "HOLD" or "CLOSE" or "MOVE_SL",
+            "position_id": the Position ID from the list above this decision applies to,
+            "new_stop_loss": new stop loss expressed as an ABSOLUTE PRICE LEVEL (e.g. 1.14200), NOT a pip distance - ONLY required if action is MOVE_SL,
+            "reasoning": "why you chose this action for the existing position"
+        }
+    ]  (one object PER open position listed above - always an array, even with exactly one position)"""
             else:
                 own_positions_block = "**Your Open Position(s) on " + symbol + ":** none"
-                position_management_schema = ""
+                position_management_schema = """,
+    "position_management": []"""
 
             # Prompt összeállítása
             prompt = f"""
@@ -1075,19 +1078,37 @@ Based on this analysis, provide your trading decision in this EXACT JSON format:
 }}
 
 "action"/"confidence"/"reasoning"/"stop_loss_pips"/"take_profit_pips" are about a POTENTIAL NEW position.
-{"Include \"position_management\" for the existing position(s) listed above." if own_positions else "Omit \"position_management\" entirely since there is no open position on this symbol."}
+"position_management" is ALWAYS an array - one object per position listed under "Your Open Position(s)" above, or an empty array [] if there are none. Never omit this field and never return a single object instead of an array.
 
-Provide ONLY the JSON, no other text.
+If you are uncertain or the signal is mixed/weak, respond with "action": "HOLD" and "confidence": 0.0 rather than guessing - a low-confidence guess is worse than an honest HOLD.
+
+Two examples of the exact response shape (values illustrative only, do not copy them):
+
+Example 1 - no open position on this symbol:
+{{"action": "BUY", "confidence": 0.78, "reasoning": "Uptrend confirmed by SMA20>SMA50, RSI 58 not overbought, no imminent news.", "stop_loss_pips": 25, "take_profit_pips": 50, "position_management": []}}
+
+Example 2 - one open position on this symbol, plus a new-entry decision:
+{{"action": "HOLD", "confidence": 0.0, "reasoning": "Mixed signal, no new entry.", "stop_loss_pips": 0, "take_profit_pips": 0, "position_management": [{{"action": "MOVE_SL", "position_id": 123456, "new_stop_loss": 1.14200, "reasoning": "Trail stop to lock in profit as price moved favorably."}}]}}
+
+Respond with ONLY valid JSON matching this shape - no markdown code fences (no ```), no headings, no explanation text before or after, just the raw JSON object.
 """
 
             # Claude API hívás - a szinkron Anthropic klienst külön szálon kell futtatni,
             # különben blokkolja az asyncio event loop-ot a hívás teljes idejére (~5-10s),
             # ami kiéhezteti a websocket kapcsolat keepalive ping/pong kezelését és
             # "keepalive ping timeout" hibát okoz a cTrader kapcsolaton.
+            # temperature=0: determinisztikus, formátum-stabil kimenetet akarunk,
+            # nem kreatív variációt - ez a JSON-parse hibák egy részét is
+            # megelőzi (a modell kevésbé tér el a kért séma szó szerinti
+            # formájától). max_tokens levágva 700-ra (az 1024 felesleges volt
+            # egy tömör JSON válaszhoz, és hosszú "reasoning" mezők esetén is
+            # elég, több nyitott pozíciónál pedig a position_management tömb
+            # miatt szükséges a korábbi 512 helyett kicsit nagyobb keret).
             response = await asyncio.to_thread(
                 self.anthropic.messages.create,
                 model="claude-sonnet-4-5",
-                max_tokens=1024,
+                max_tokens=700,
+                temperature=0,
                 messages=[{
                     "role": "user",
                     "content": prompt
@@ -1133,7 +1154,7 @@ Provide ONLY the JSON, no other text.
                 'reasoning': f'Error: {e}',
                 'stop_loss_pips': 0,
                 'take_profit_pips': 0,
-                'position_management': None
+                'position_management': []
             }
 
     async def _manage_open_positions(
@@ -1334,9 +1355,16 @@ Provide ONLY the JSON, no other text.
                 logger.warning(f"⚠️ [{symbol}] Maximum nyitott pozíciók száma elérve")
                 return msg
 
-            # Confidence threshold
-            if decision['confidence'] < 0.6:
-                logger.info(f"⚠️ [{symbol}] Alacsony confidence ({decision['confidence']:.2f}), skip trade")
+            # Confidence threshold - a "watcher" oldali kapu: ha az AI nem
+            # elég biztos, ne nyisson pozíciót. Ez a küszöb NEM ugyanaz,
+            # mint a promptban kért "bizonytalan esetben HOLD, confidence:
+            # 0.0" instrukció - az a modell saját önértékelését kéri, ez
+            # itt egy kemény, kódban rögzített védőkorlát, ami akkor is
+            # érvényes, ha a modell egy határeset döntést mégis viszonylag
+            # magas (de nem elég magas) confidence-szel adna vissza.
+            MIN_TRADE_CONFIDENCE = 0.65
+            if decision['confidence'] < MIN_TRADE_CONFIDENCE:
+                logger.info(f"⚠️ [{symbol}] Alacsony confidence ({decision['confidence']:.2f} < {MIN_TRADE_CONFIDENCE}), skip trade")
                 return f"Kihagyva: alacsony bizonyosság ({decision['confidence']:.2f})"
 
             action = (decision.get('action') or '').strip().upper()
