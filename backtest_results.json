@@ -1,174 +1,829 @@
 {
   "XAUUSD": {
     "symbol": "XAUUSD",
-    "candle_count": 499,
-    "period_start": "2026-06-12T18:00:00",
-    "period_end": "2026-07-10T14:00:00",
-    "stop_loss_pips": 200.0,
-    "take_profit_pips": 400.0,
+    "candle_count": 500,
+    "period_start": "2026-06-15T00:00:00",
+    "period_end": "2026-07-10T20:00:00",
+    "stop_loss_pips": 20.0,
+    "take_profit_pips": 40.0,
     "spread_pips": 1.5,
     "slippage_pips": 0.5,
-    "min_hold_bars": 10,
-    "total_trades": 11,
-    "wins": 7,
-    "losses": 4,
-    "win_rate": 0.636,
-    "total_pnl_pips": 1978.0,
-    "profit_factor": 3.45,
-    "max_drawdown_pips": 606.0,
-    "max_drawdown_pct": 0.59,
-    "sharpe_ratio": 6.49,
-    "sortino_ratio": 684.32,
-    "calmar_ratio": 3.34,
-    "avg_win_pips": 398.0,
-    "avg_loss_pips": -202.0,
-    "largest_win_pips": 398.0,
-    "largest_loss_pips": -202.0,
-    "avg_holding_bars": 9.8,
-    "long_trades": 5,
-    "short_trades": 6,
-    "long_win_rate": 0.4,
-    "short_win_rate": 0.833,
-    "long_pnl_pips": 190.0,
-    "short_pnl_pips": 1788.0,
+    "min_hold_bars": 0,
+    "total_trades": 79,
+    "wins": 10,
+    "losses": 69,
+    "win_rate": 0.127,
+    "total_pnl_pips": -1138.0,
+    "profit_factor": 0.25,
+    "max_drawdown_pips": 1138.0,
+    "max_drawdown_pct": 1.14,
+    "sharpe_ratio": -19.67,
+    "sortino_ratio": -2713.93,
+    "calmar_ratio": -1.0,
+    "avg_win_pips": 38.0,
+    "avg_loss_pips": -22.0,
+    "largest_win_pips": 38.0,
+    "largest_loss_pips": -22.0,
+    "avg_holding_bars": 1.0,
+    "long_trades": 51,
+    "short_trades": 28,
+    "long_win_rate": 0.157,
+    "short_win_rate": 0.071,
+    "long_pnl_pips": -642.0,
+    "short_pnl_pips": -496.0,
     "trades": [
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-15T23:00:00",
+        "entry_price": 4315.64,
+        "exit_time": "2026-06-16T00:00:00",
+        "exit_price": 4313.64,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-16T00:00:00",
+        "entry_price": 4319.3,
+        "exit_time": "2026-06-16T01:00:00",
+        "exit_price": 4317.3,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
       {
         "direction": "BUY",
         "entry_time": "2026-06-16T01:00:00",
         "entry_price": 4313.59,
-        "exit_time": "2026-06-16T12:00:00",
-        "exit_price": 4353.59,
+        "exit_time": "2026-06-16T02:00:00",
+        "exit_price": 4311.59,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-16T03:00:00",
+        "entry_price": 4330.57,
+        "exit_time": "2026-06-16T04:00:00",
+        "exit_price": 4328.57,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-16T04:00:00",
+        "entry_price": 4322.58,
+        "exit_time": "2026-06-16T05:00:00",
+        "exit_price": 4320.58,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-16T05:00:00",
+        "entry_price": 4315.94,
+        "exit_time": "2026-06-16T06:00:00",
+        "exit_price": 4313.94,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-16T06:00:00",
+        "entry_price": 4323.96,
+        "exit_time": "2026-06-16T07:00:00",
+        "exit_price": 4327.96,
         "exit_reason": "take_profit",
-        "pnl_pips": 398.0,
-        "holding_bars": 11
+        "pnl_pips": 38.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-17T03:00:00",
+        "entry_price": 4332.32,
+        "exit_time": "2026-06-17T04:00:00",
+        "exit_price": 4330.32,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
       },
       {
         "direction": "BUY",
         "entry_time": "2026-06-17T07:00:00",
         "entry_price": 4325.23,
-        "exit_time": "2026-06-17T16:00:00",
-        "exit_price": 4365.23,
+        "exit_time": "2026-06-17T08:00:00",
+        "exit_price": 4323.23,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-17T08:00:00",
+        "entry_price": 4324.84,
+        "exit_time": "2026-06-17T09:00:00",
+        "exit_price": 4322.84,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-17T18:00:00",
+        "entry_price": 4286.04,
+        "exit_time": "2026-06-17T19:00:00",
+        "exit_price": 4284.04,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-17T19:00:00",
+        "entry_price": 4235.81,
+        "exit_time": "2026-06-17T20:00:00",
+        "exit_price": 4239.81,
         "exit_reason": "take_profit",
-        "pnl_pips": 398.0,
-        "holding_bars": 9
+        "pnl_pips": 38.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-22T01:00:00",
+        "entry_price": 4190.94,
+        "exit_time": "2026-06-22T02:00:00",
+        "exit_price": 4192.94,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
       },
       {
         "direction": "SELL",
         "entry_time": "2026-06-22T06:00:00",
         "entry_price": 4197.59,
-        "exit_time": "2026-06-23T01:00:00",
-        "exit_price": 4157.59,
-        "exit_reason": "take_profit",
-        "pnl_pips": 398.0,
-        "holding_bars": 18
+        "exit_time": "2026-06-22T07:00:00",
+        "exit_price": 4199.59,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-22T08:00:00",
+        "entry_price": 4197.4,
+        "exit_time": "2026-06-22T09:00:00",
+        "exit_price": 4199.4,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-22T10:00:00",
+        "entry_price": 4204.74,
+        "exit_time": "2026-06-22T11:00:00",
+        "exit_price": 4206.74,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-22T11:00:00",
+        "entry_price": 4207.49,
+        "exit_time": "2026-06-22T12:00:00",
+        "exit_price": 4209.49,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-22T13:00:00",
+        "entry_price": 4199.88,
+        "exit_time": "2026-06-22T14:00:00",
+        "exit_price": 4201.88,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-23T01:00:00",
+        "entry_price": 4161.29,
+        "exit_time": "2026-06-23T02:00:00",
+        "exit_price": 4159.29,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-23T02:00:00",
+        "entry_price": 4146.95,
+        "exit_time": "2026-06-23T03:00:00",
+        "exit_price": 4144.95,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-23T03:00:00",
+        "entry_price": 4144.05,
+        "exit_time": "2026-06-23T04:00:00",
+        "exit_price": 4142.05,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-23T04:00:00",
+        "entry_price": 4118.22,
+        "exit_time": "2026-06-23T05:00:00",
+        "exit_price": 4116.22,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-23T05:00:00",
+        "entry_price": 4121.19,
+        "exit_time": "2026-06-23T06:00:00",
+        "exit_price": 4119.19,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-23T06:00:00",
+        "entry_price": 4114.47,
+        "exit_time": "2026-06-23T07:00:00",
+        "exit_price": 4112.47,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
       },
       {
         "direction": "SELL",
         "entry_time": "2026-06-25T16:00:00",
         "entry_price": 4028.79,
+        "exit_time": "2026-06-25T17:00:00",
+        "exit_price": 4030.79,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-25T17:00:00",
+        "entry_price": 4034.79,
+        "exit_time": "2026-06-25T18:00:00",
+        "exit_price": 4036.79,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-25T18:00:00",
+        "entry_price": 4034.83,
+        "exit_time": "2026-06-25T19:00:00",
+        "exit_price": 4036.83,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-25T20:00:00",
+        "entry_price": 4026.59,
+        "exit_time": "2026-06-25T22:00:00",
+        "exit_price": 4028.59,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-25T22:00:00",
+        "entry_price": 4026.41,
+        "exit_time": "2026-06-25T23:00:00",
+        "exit_price": 4028.41,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-26T01:00:00",
+        "entry_price": 4021.02,
         "exit_time": "2026-06-26T02:00:00",
-        "exit_price": 3988.79,
+        "exit_price": 4023.02,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T05:00:00",
+        "entry_price": 4054.5,
+        "exit_time": "2026-06-29T06:00:00",
+        "exit_price": 4058.5,
         "exit_reason": "take_profit",
-        "pnl_pips": 398.0,
-        "holding_bars": 9
+        "pnl_pips": 38.0,
+        "holding_bars": 1
       },
       {
         "direction": "BUY",
         "entry_time": "2026-06-29T06:00:00",
         "entry_price": 4062.46,
-        "exit_time": "2026-06-29T09:00:00",
-        "exit_price": 4042.46,
+        "exit_time": "2026-06-29T07:00:00",
+        "exit_price": 4060.46,
         "exit_reason": "stop_loss",
-        "pnl_pips": -202.0,
-        "holding_bars": 3
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T07:00:00",
+        "entry_price": 4061.74,
+        "exit_time": "2026-06-29T08:00:00",
+        "exit_price": 4059.74,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T08:00:00",
+        "entry_price": 4047.01,
+        "exit_time": "2026-06-29T09:00:00",
+        "exit_price": 4045.01,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T09:00:00",
+        "entry_price": 4031.59,
+        "exit_time": "2026-06-29T10:00:00",
+        "exit_price": 4029.59,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T10:00:00",
+        "entry_price": 4036.86,
+        "exit_time": "2026-06-29T11:00:00",
+        "exit_price": 4034.86,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T11:00:00",
+        "entry_price": 4039.25,
+        "exit_time": "2026-06-29T12:00:00",
+        "exit_price": 4043.25,
+        "exit_reason": "take_profit",
+        "pnl_pips": 38.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T13:00:00",
+        "entry_price": 4032.18,
+        "exit_time": "2026-06-29T14:00:00",
+        "exit_price": 4030.18,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T14:00:00",
+        "entry_price": 4025.67,
+        "exit_time": "2026-06-29T15:00:00",
+        "exit_price": 4023.67,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T15:00:00",
+        "entry_price": 4027.03,
+        "exit_time": "2026-06-29T16:00:00",
+        "exit_price": 4025.03,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T16:00:00",
+        "entry_price": 4023.97,
+        "exit_time": "2026-06-29T17:00:00",
+        "exit_price": 4021.97,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T17:00:00",
+        "entry_price": 4021.07,
+        "exit_time": "2026-06-29T18:00:00",
+        "exit_price": 4019.07,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-06-29T18:00:00",
+        "entry_price": 4013.45,
+        "exit_time": "2026-06-29T19:00:00",
+        "exit_price": 4011.45,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
       },
       {
         "direction": "SELL",
         "entry_time": "2026-06-30T15:00:00",
         "entry_price": 4029.42,
-        "exit_time": "2026-07-01T01:00:00",
-        "exit_price": 3989.42,
+        "exit_time": "2026-06-30T16:00:00",
+        "exit_price": 4031.42,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-06-30T18:00:00",
+        "entry_price": 4028.58,
+        "exit_time": "2026-06-30T19:00:00",
+        "exit_price": 4024.58,
         "exit_reason": "take_profit",
-        "pnl_pips": 398.0,
-        "holding_bars": 9
+        "pnl_pips": 38.0,
+        "holding_bars": 1
       },
       {
         "direction": "SELL",
         "entry_time": "2026-07-01T14:00:00",
         "entry_price": 4093.55,
-        "exit_time": "2026-07-01T19:00:00",
-        "exit_price": 4053.55,
+        "exit_time": "2026-07-01T15:00:00",
+        "exit_price": 4089.55,
         "exit_reason": "take_profit",
-        "pnl_pips": 398.0,
-        "holding_bars": 5
+        "pnl_pips": 38.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-01T15:00:00",
+        "entry_price": 4081.26,
+        "exit_time": "2026-07-01T16:00:00",
+        "exit_price": 4083.26,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-01T17:00:00",
+        "entry_price": 4068.31,
+        "exit_time": "2026-07-01T18:00:00",
+        "exit_price": 4070.31,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-02T04:00:00",
+        "entry_price": 4060.7,
+        "exit_time": "2026-07-02T05:00:00",
+        "exit_price": 4058.7,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
       },
       {
         "direction": "BUY",
         "entry_time": "2026-07-03T15:00:00",
         "entry_price": 4164.96,
-        "exit_time": "2026-07-06T05:00:00",
-        "exit_price": 4144.96,
+        "exit_time": "2026-07-03T16:00:00",
+        "exit_price": 4162.96,
         "exit_reason": "stop_loss",
-        "pnl_pips": -202.0,
-        "holding_bars": 9
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-06T05:00:00",
+        "entry_price": 4147.9,
+        "exit_time": "2026-07-06T06:00:00",
+        "exit_price": 4145.9,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-06T06:00:00",
+        "entry_price": 4150.31,
+        "exit_time": "2026-07-06T07:00:00",
+        "exit_price": 4148.31,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-06T09:00:00",
+        "entry_price": 4143.22,
+        "exit_time": "2026-07-06T10:00:00",
+        "exit_price": 4147.22,
+        "exit_reason": "take_profit",
+        "pnl_pips": 38.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-06T12:00:00",
+        "entry_price": 4139.71,
+        "exit_time": "2026-07-06T13:00:00",
+        "exit_price": 4137.71,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-06T13:00:00",
+        "entry_price": 4140.73,
+        "exit_time": "2026-07-06T14:00:00",
+        "exit_price": 4138.73,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-06T14:00:00",
+        "entry_price": 4138.26,
+        "exit_time": "2026-07-06T15:00:00",
+        "exit_price": 4142.26,
+        "exit_reason": "take_profit",
+        "pnl_pips": 38.0,
+        "holding_bars": 1
       },
       {
         "direction": "BUY",
         "entry_time": "2026-07-06T15:00:00",
         "entry_price": 4148.4,
-        "exit_time": "2026-07-07T01:00:00",
-        "exit_price": 4128.4,
+        "exit_time": "2026-07-06T16:00:00",
+        "exit_price": 4146.4,
         "exit_reason": "stop_loss",
-        "pnl_pips": -202.0,
-        "holding_bars": 9
+        "pnl_pips": -22.0,
+        "holding_bars": 1
       },
       {
         "direction": "SELL",
         "entry_time": "2026-07-09T00:00:00",
         "entry_price": 4074.03,
-        "exit_time": "2026-07-09T06:00:00",
-        "exit_price": 4094.03,
+        "exit_time": "2026-07-09T01:00:00",
+        "exit_price": 4076.03,
         "exit_reason": "stop_loss",
-        "pnl_pips": -202.0,
-        "holding_bars": 6
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-09T05:00:00",
+        "entry_price": 4082.08,
+        "exit_time": "2026-07-09T06:00:00",
+        "exit_price": 4084.08,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-09T06:00:00",
+        "entry_price": 4108.07,
+        "exit_time": "2026-07-09T07:00:00",
+        "exit_price": 4110.07,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-09T07:00:00",
+        "entry_price": 4108.05,
+        "exit_time": "2026-07-09T08:00:00",
+        "exit_price": 4110.05,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-09T08:00:00",
+        "entry_price": 4108.39,
+        "exit_time": "2026-07-09T09:00:00",
+        "exit_price": 4110.39,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-09T09:00:00",
+        "entry_price": 4106.44,
+        "exit_time": "2026-07-09T10:00:00",
+        "exit_price": 4108.44,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-09T12:00:00",
+        "entry_price": 4107.81,
+        "exit_time": "2026-07-09T13:00:00",
+        "exit_price": 4109.81,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-09T13:00:00",
+        "entry_price": 4122.08,
+        "exit_time": "2026-07-09T14:00:00",
+        "exit_price": 4124.08,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-09T14:00:00",
+        "entry_price": 4127.84,
+        "exit_time": "2026-07-09T15:00:00",
+        "exit_price": 4129.84,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "SELL",
+        "entry_time": "2026-07-09T15:00:00",
+        "entry_price": 4127.1,
+        "exit_time": "2026-07-09T16:00:00",
+        "exit_price": 4129.1,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
       },
       {
         "direction": "SELL",
         "entry_time": "2026-07-09T16:00:00",
         "entry_price": 4128.04,
-        "exit_time": "2026-07-10T13:00:00",
-        "exit_price": 4088.04,
+        "exit_time": "2026-07-09T17:00:00",
+        "exit_price": 4130.04,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T06:00:00",
+        "entry_price": 4111.74,
+        "exit_time": "2026-07-10T07:00:00",
+        "exit_price": 4109.74,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T07:00:00",
+        "entry_price": 4108.97,
+        "exit_time": "2026-07-10T08:00:00",
+        "exit_price": 4106.97,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T08:00:00",
+        "entry_price": 4097.84,
+        "exit_time": "2026-07-10T09:00:00",
+        "exit_price": 4095.84,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T09:00:00",
+        "entry_price": 4104.4,
+        "exit_time": "2026-07-10T10:00:00",
+        "exit_price": 4108.4,
         "exit_reason": "take_profit",
-        "pnl_pips": 398.0,
-        "holding_bars": 20
+        "pnl_pips": 38.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T10:00:00",
+        "entry_price": 4104.59,
+        "exit_time": "2026-07-10T11:00:00",
+        "exit_price": 4102.59,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T11:00:00",
+        "entry_price": 4102.34,
+        "exit_time": "2026-07-10T12:00:00",
+        "exit_price": 4100.34,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T12:00:00",
+        "entry_price": 4100.83,
+        "exit_time": "2026-07-10T13:00:00",
+        "exit_price": 4098.83,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T13:00:00",
+        "entry_price": 4099.95,
+        "exit_time": "2026-07-10T14:00:00",
+        "exit_price": 4097.95,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T14:00:00",
+        "entry_price": 4092.8,
+        "exit_time": "2026-07-10T15:00:00",
+        "exit_price": 4096.8,
+        "exit_reason": "take_profit",
+        "pnl_pips": 38.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T16:00:00",
+        "entry_price": 4104.56,
+        "exit_time": "2026-07-10T17:00:00",
+        "exit_price": 4102.56,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
+      },
+      {
+        "direction": "BUY",
+        "entry_time": "2026-07-10T17:00:00",
+        "entry_price": 4100.81,
+        "exit_time": "2026-07-10T18:00:00",
+        "exit_price": 4098.81,
+        "exit_reason": "stop_loss",
+        "pnl_pips": -22.0,
+        "holding_bars": 1
       }
     ],
     "equity_curve": [
-      {
-        "timestamp": "2026-06-12T18:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
-      },
-      {
-        "timestamp": "2026-06-12T19:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
-      },
-      {
-        "timestamp": "2026-06-12T20:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
-      },
-      {
-        "timestamp": "2026-06-14T22:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
-      },
-      {
-        "timestamp": "2026-06-14T23:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
-      },
       {
         "timestamp": "2026-06-15T00:00:00",
         "pnl_pips": 0.0,
@@ -286,2108 +941,2138 @@
       },
       {
         "timestamp": "2026-06-16T00:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -22.0,
+        "equity": 9997.8
       },
       {
         "timestamp": "2026-06-16T01:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -44.0,
+        "equity": 9995.6
       },
       {
         "timestamp": "2026-06-16T02:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -66.0,
+        "equity": 9993.4
       },
       {
         "timestamp": "2026-06-16T03:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -66.0,
+        "equity": 9993.4
       },
       {
         "timestamp": "2026-06-16T04:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -88.0,
+        "equity": 9991.2
       },
       {
         "timestamp": "2026-06-16T05:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -110.0,
+        "equity": 9989.0
       },
       {
         "timestamp": "2026-06-16T06:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -132.0,
+        "equity": 9986.8
       },
       {
         "timestamp": "2026-06-16T07:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T08:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T09:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T10:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T11:00:00",
-        "pnl_pips": 0.0,
-        "equity": 10000.0
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T12:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T13:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T14:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T15:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T16:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T17:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T18:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T19:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T20:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T22:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-16T23:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-17T00:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-17T01:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-17T02:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-17T03:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -94.0,
+        "equity": 9990.6
       },
       {
         "timestamp": "2026-06-17T04:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -116.0,
+        "equity": 9988.4
       },
       {
         "timestamp": "2026-06-17T05:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -116.0,
+        "equity": 9988.4
       },
       {
         "timestamp": "2026-06-17T06:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -116.0,
+        "equity": 9988.4
       },
       {
         "timestamp": "2026-06-17T07:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -116.0,
+        "equity": 9988.4
       },
       {
         "timestamp": "2026-06-17T08:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -138.0,
+        "equity": 9986.2
       },
       {
         "timestamp": "2026-06-17T09:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T10:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T11:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T12:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T13:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T14:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T15:00:00",
-        "pnl_pips": 398.0,
-        "equity": 10039.8
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T16:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T17:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T18:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -160.0,
+        "equity": 9984.0
       },
       {
         "timestamp": "2026-06-17T19:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -182.0,
+        "equity": 9981.8
       },
       {
         "timestamp": "2026-06-17T20:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-17T22:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-17T23:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T00:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T01:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T02:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T03:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T04:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T05:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T06:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T07:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T08:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T09:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T10:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T11:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T12:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T13:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T14:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T15:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T16:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T17:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T18:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T19:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T20:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T22:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-18T23:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T00:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T01:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T02:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T03:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T04:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T05:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T06:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T07:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T08:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T09:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T10:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T11:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T12:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T13:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T14:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T15:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-19T16:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-21T22:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-21T23:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-22T00:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-22T01:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -144.0,
+        "equity": 9985.6
       },
       {
         "timestamp": "2026-06-22T02:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -166.0,
+        "equity": 9983.4
       },
       {
         "timestamp": "2026-06-22T03:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -166.0,
+        "equity": 9983.4
       },
       {
         "timestamp": "2026-06-22T04:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -166.0,
+        "equity": 9983.4
       },
       {
         "timestamp": "2026-06-22T05:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -166.0,
+        "equity": 9983.4
       },
       {
         "timestamp": "2026-06-22T06:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -166.0,
+        "equity": 9983.4
       },
       {
         "timestamp": "2026-06-22T07:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -188.0,
+        "equity": 9981.2
       },
       {
         "timestamp": "2026-06-22T08:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -188.0,
+        "equity": 9981.2
       },
       {
         "timestamp": "2026-06-22T09:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -210.0,
+        "equity": 9979.0
       },
       {
         "timestamp": "2026-06-22T10:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -210.0,
+        "equity": 9979.0
       },
       {
         "timestamp": "2026-06-22T11:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -232.0,
+        "equity": 9976.8
       },
       {
         "timestamp": "2026-06-22T12:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -254.0,
+        "equity": 9974.6
       },
       {
         "timestamp": "2026-06-22T13:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -254.0,
+        "equity": 9974.6
       },
       {
         "timestamp": "2026-06-22T14:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-22T15:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-22T16:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-22T17:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-22T18:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-22T19:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-22T20:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-22T22:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-22T23:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-23T00:00:00",
-        "pnl_pips": 796.0,
-        "equity": 10079.6
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-23T01:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -276.0,
+        "equity": 9972.4
       },
       {
         "timestamp": "2026-06-23T02:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -298.0,
+        "equity": 9970.2
       },
       {
         "timestamp": "2026-06-23T03:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -320.0,
+        "equity": 9968.0
       },
       {
         "timestamp": "2026-06-23T04:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -342.0,
+        "equity": 9965.8
       },
       {
         "timestamp": "2026-06-23T05:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -364.0,
+        "equity": 9963.6
       },
       {
         "timestamp": "2026-06-23T06:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -386.0,
+        "equity": 9961.4
       },
       {
         "timestamp": "2026-06-23T07:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T08:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T09:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T10:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T11:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T12:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T13:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T14:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T15:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T16:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T17:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T18:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T19:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T20:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T22:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-23T23:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T00:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T01:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T02:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T03:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T04:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T05:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T06:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T07:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T08:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T09:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T10:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T11:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T12:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T13:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T14:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T15:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T16:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T17:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T18:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T19:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T20:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T22:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-24T23:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T00:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T01:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T02:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T03:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T04:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T05:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T06:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T07:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T08:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T09:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T10:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T11:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T12:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T13:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T14:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T15:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T16:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -408.0,
+        "equity": 9959.2
       },
       {
         "timestamp": "2026-06-25T17:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -430.0,
+        "equity": 9957.0
       },
       {
         "timestamp": "2026-06-25T18:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -452.0,
+        "equity": 9954.8
       },
       {
         "timestamp": "2026-06-25T19:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -474.0,
+        "equity": 9952.6
       },
       {
         "timestamp": "2026-06-25T20:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -474.0,
+        "equity": 9952.6
       },
       {
         "timestamp": "2026-06-25T22:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -496.0,
+        "equity": 9950.4
       },
       {
         "timestamp": "2026-06-25T23:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -518.0,
+        "equity": 9948.2
       },
       {
         "timestamp": "2026-06-26T00:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -518.0,
+        "equity": 9948.2
       },
       {
         "timestamp": "2026-06-26T01:00:00",
-        "pnl_pips": 1194.0,
-        "equity": 10119.4
+        "pnl_pips": -518.0,
+        "equity": 9948.2
       },
       {
         "timestamp": "2026-06-26T02:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T03:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T04:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T05:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T06:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T07:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T08:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T09:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T10:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T11:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T12:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T13:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T14:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T15:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T16:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T17:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T18:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T19:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-26T20:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-28T22:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-28T23:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-29T00:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-29T01:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-29T02:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-29T03:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-29T04:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-29T05:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -540.0,
+        "equity": 9946.0
       },
       {
         "timestamp": "2026-06-29T06:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -502.0,
+        "equity": 9949.8
       },
       {
         "timestamp": "2026-06-29T07:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -524.0,
+        "equity": 9947.6
       },
       {
         "timestamp": "2026-06-29T08:00:00",
-        "pnl_pips": 1592.0,
-        "equity": 10159.2
+        "pnl_pips": -546.0,
+        "equity": 9945.4
       },
       {
         "timestamp": "2026-06-29T09:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -568.0,
+        "equity": 9943.2
       },
       {
         "timestamp": "2026-06-29T10:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -590.0,
+        "equity": 9941.0
       },
       {
         "timestamp": "2026-06-29T11:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -612.0,
+        "equity": 9938.8
       },
       {
         "timestamp": "2026-06-29T12:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -574.0,
+        "equity": 9942.6
       },
       {
         "timestamp": "2026-06-29T13:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -574.0,
+        "equity": 9942.6
       },
       {
         "timestamp": "2026-06-29T14:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -596.0,
+        "equity": 9940.4
       },
       {
         "timestamp": "2026-06-29T15:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -618.0,
+        "equity": 9938.2
       },
       {
         "timestamp": "2026-06-29T16:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -640.0,
+        "equity": 9936.0
       },
       {
         "timestamp": "2026-06-29T17:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -662.0,
+        "equity": 9933.8
       },
       {
         "timestamp": "2026-06-29T18:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -684.0,
+        "equity": 9931.6
       },
       {
         "timestamp": "2026-06-29T19:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-29T20:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-29T22:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-29T23:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T00:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T01:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T02:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T03:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T04:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T05:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T06:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T07:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T08:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T09:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T10:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T11:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T12:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T13:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T14:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T15:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -706.0,
+        "equity": 9929.4
       },
       {
         "timestamp": "2026-06-30T16:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -728.0,
+        "equity": 9927.2
       },
       {
         "timestamp": "2026-06-30T17:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -728.0,
+        "equity": 9927.2
       },
       {
         "timestamp": "2026-06-30T18:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -728.0,
+        "equity": 9927.2
       },
       {
         "timestamp": "2026-06-30T19:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-06-30T20:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-06-30T22:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-06-30T23:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T00:00:00",
-        "pnl_pips": 1390.0,
-        "equity": 10139.0
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T01:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T02:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T03:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T04:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T05:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T06:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T07:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T08:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T09:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T10:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T11:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T12:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T13:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T14:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -690.0,
+        "equity": 9931.0
       },
       {
         "timestamp": "2026-07-01T15:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -652.0,
+        "equity": 9934.8
       },
       {
         "timestamp": "2026-07-01T16:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -674.0,
+        "equity": 9932.6
       },
       {
         "timestamp": "2026-07-01T17:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -674.0,
+        "equity": 9932.6
       },
       {
         "timestamp": "2026-07-01T18:00:00",
-        "pnl_pips": 1788.0,
-        "equity": 10178.8
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-01T19:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-01T20:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-01T22:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-01T23:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-02T00:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-02T01:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-02T02:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-02T03:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-02T04:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -696.0,
+        "equity": 9930.4
       },
       {
         "timestamp": "2026-07-02T05:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T06:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T07:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T08:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T09:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T10:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T11:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T12:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T13:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T14:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T15:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T16:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T17:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T18:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T19:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T20:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T22:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-02T23:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T00:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T01:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T02:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T03:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T04:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T05:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T06:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T07:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T08:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T09:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T10:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T11:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T12:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T13:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T14:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T15:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -718.0,
+        "equity": 9928.2
       },
       {
         "timestamp": "2026-07-03T16:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -740.0,
+        "equity": 9926.0
       },
       {
         "timestamp": "2026-07-05T22:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -740.0,
+        "equity": 9926.0
       },
       {
         "timestamp": "2026-07-05T23:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -740.0,
+        "equity": 9926.0
       },
       {
         "timestamp": "2026-07-06T00:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -740.0,
+        "equity": 9926.0
       },
       {
         "timestamp": "2026-07-06T01:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -740.0,
+        "equity": 9926.0
       },
       {
         "timestamp": "2026-07-06T02:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -740.0,
+        "equity": 9926.0
       },
       {
         "timestamp": "2026-07-06T03:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -740.0,
+        "equity": 9926.0
       },
       {
         "timestamp": "2026-07-06T04:00:00",
-        "pnl_pips": 2186.0,
-        "equity": 10218.6
+        "pnl_pips": -740.0,
+        "equity": 9926.0
       },
       {
         "timestamp": "2026-07-06T05:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -740.0,
+        "equity": 9926.0
       },
       {
         "timestamp": "2026-07-06T06:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -762.0,
+        "equity": 9923.8
       },
       {
         "timestamp": "2026-07-06T07:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -784.0,
+        "equity": 9921.6
       },
       {
         "timestamp": "2026-07-06T08:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -784.0,
+        "equity": 9921.6
       },
       {
         "timestamp": "2026-07-06T09:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -784.0,
+        "equity": 9921.6
       },
       {
         "timestamp": "2026-07-06T10:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -746.0,
+        "equity": 9925.4
       },
       {
         "timestamp": "2026-07-06T11:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -746.0,
+        "equity": 9925.4
       },
       {
         "timestamp": "2026-07-06T12:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -746.0,
+        "equity": 9925.4
       },
       {
         "timestamp": "2026-07-06T13:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -768.0,
+        "equity": 9923.2
       },
       {
         "timestamp": "2026-07-06T14:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -790.0,
+        "equity": 9921.0
       },
       {
         "timestamp": "2026-07-06T15:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -752.0,
+        "equity": 9924.8
       },
       {
         "timestamp": "2026-07-06T16:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-06T17:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-06T18:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-06T19:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-06T20:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-06T22:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-06T23:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T00:00:00",
-        "pnl_pips": 1984.0,
-        "equity": 10198.4
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T01:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T02:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T03:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T04:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T05:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T06:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T07:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T08:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T09:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T10:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T11:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T12:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T13:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T14:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T15:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T16:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T17:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T18:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T19:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T20:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T22:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-07T23:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T00:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T01:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T02:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T03:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T04:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T05:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T06:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T07:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T08:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T09:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T10:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T11:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T12:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T13:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T14:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T15:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T16:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T17:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T18:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T19:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T20:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T22:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-08T23:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-09T00:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -774.0,
+        "equity": 9922.6
       },
       {
         "timestamp": "2026-07-09T01:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -796.0,
+        "equity": 9920.4
       },
       {
         "timestamp": "2026-07-09T02:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -796.0,
+        "equity": 9920.4
       },
       {
         "timestamp": "2026-07-09T03:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -796.0,
+        "equity": 9920.4
       },
       {
         "timestamp": "2026-07-09T04:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -796.0,
+        "equity": 9920.4
       },
       {
         "timestamp": "2026-07-09T05:00:00",
-        "pnl_pips": 1782.0,
-        "equity": 10178.2
+        "pnl_pips": -796.0,
+        "equity": 9920.4
       },
       {
         "timestamp": "2026-07-09T06:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -818.0,
+        "equity": 9918.2
       },
       {
         "timestamp": "2026-07-09T07:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -840.0,
+        "equity": 9916.0
       },
       {
         "timestamp": "2026-07-09T08:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -862.0,
+        "equity": 9913.8
       },
       {
         "timestamp": "2026-07-09T09:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -884.0,
+        "equity": 9911.6
       },
       {
         "timestamp": "2026-07-09T10:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -906.0,
+        "equity": 9909.4
       },
       {
         "timestamp": "2026-07-09T11:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -906.0,
+        "equity": 9909.4
       },
       {
         "timestamp": "2026-07-09T12:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -906.0,
+        "equity": 9909.4
       },
       {
         "timestamp": "2026-07-09T13:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -928.0,
+        "equity": 9907.2
       },
       {
         "timestamp": "2026-07-09T14:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -950.0,
+        "equity": 9905.0
       },
       {
         "timestamp": "2026-07-09T15:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -972.0,
+        "equity": 9902.8
       },
       {
         "timestamp": "2026-07-09T16:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -994.0,
+        "equity": 9900.6
       },
       {
         "timestamp": "2026-07-09T17:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-09T18:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-09T19:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-09T20:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-09T22:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-09T23:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-10T00:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-10T01:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-10T02:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-10T03:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-10T04:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-10T05:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-10T06:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1016.0,
+        "equity": 9898.4
       },
       {
         "timestamp": "2026-07-10T07:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1038.0,
+        "equity": 9896.2
       },
       {
         "timestamp": "2026-07-10T08:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1060.0,
+        "equity": 9894.0
       },
       {
         "timestamp": "2026-07-10T09:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1082.0,
+        "equity": 9891.8
       },
       {
         "timestamp": "2026-07-10T10:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1044.0,
+        "equity": 9895.6
       },
       {
         "timestamp": "2026-07-10T11:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1066.0,
+        "equity": 9893.4
       },
       {
         "timestamp": "2026-07-10T12:00:00",
-        "pnl_pips": 1580.0,
-        "equity": 10158.0
+        "pnl_pips": -1088.0,
+        "equity": 9891.2
       },
       {
         "timestamp": "2026-07-10T13:00:00",
-        "pnl_pips": 1978.0,
-        "equity": 10197.8
+        "pnl_pips": -1110.0,
+        "equity": 9889.0
       },
       {
         "timestamp": "2026-07-10T14:00:00",
-        "pnl_pips": 1978.0,
-        "equity": 10197.8
+        "pnl_pips": -1132.0,
+        "equity": 9886.8
+      },
+      {
+        "timestamp": "2026-07-10T15:00:00",
+        "pnl_pips": -1094.0,
+        "equity": 9890.6
+      },
+      {
+        "timestamp": "2026-07-10T16:00:00",
+        "pnl_pips": -1094.0,
+        "equity": 9890.6
+      },
+      {
+        "timestamp": "2026-07-10T17:00:00",
+        "pnl_pips": -1116.0,
+        "equity": 9888.4
+      },
+      {
+        "timestamp": "2026-07-10T18:00:00",
+        "pnl_pips": -1138.0,
+        "equity": 9886.2
+      },
+      {
+        "timestamp": "2026-07-10T19:00:00",
+        "pnl_pips": -1138.0,
+        "equity": 9886.2
+      },
+      {
+        "timestamp": "2026-07-10T20:00:00",
+        "pnl_pips": -1138.0,
+        "equity": 9886.2
       }
     ],
     "disclaimer": "Ez a backteszt NEM tartalmazza a Claude AI d\u00f6nt\u00e9shoz\u00f3t, csak a technikai szab\u00e1ly + ML szign\u00e1l determinisztikus k\u00f6zel\u00edt\u00e9s\u00e9t. A spread/cs\u00fasz\u00e1s egy fix pip-becsl\u00e9ssel (nem val\u00f3s tick-szint\u0171 adatb\u00f3l) van be\u00e9p\u00edtve a P&L-be. A Sharpe/Sortino csak ismert id\u0151s\u00edkokon (M1/M5/M15/M30/H1/H4/D1) \u00e9ves\u00edtett; egy\u00e9b esetben \"-\" jelenik meg, hogy a hib\u00e1s \u00e9ves\u00edt\u00e9s ne legyen f\u00e9lrevezet\u0151."
