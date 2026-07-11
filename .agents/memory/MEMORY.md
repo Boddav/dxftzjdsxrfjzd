@@ -12,3 +12,4 @@
 - [Edit tool large-file duplication risk](edit-tool-duplication-risk.md) — on this large Flask file, `Edit` calls silently duplicated the whole file content; verify line/route counts after edits to big files, and prefer scripted Python-based patching if it recurs.
 - [cTrader OAuth breaks from config.json overriding secrets](ctrader-oauth-config-override.md) — stale config.json fields shadow Secrets forever; no REST account-list endpoint exists; traderLogin ≠ ctidTraderAccountId.
 - [Verify trading articles contain a real algorithm before porting](verify-technical-articles-before-porting.md) — some blog posts are commentary about closed commercial systems, with no formula to implement.
+- [Per-symbol weekend/market-hours gating](weekend-market-hours-gating.md) — forex/metal/index symbols must skip the Claude decision loop on weekends; crypto stays 24/7.

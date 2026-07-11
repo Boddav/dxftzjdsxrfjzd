@@ -54,6 +54,39 @@ def _get_correlated_symbols(symbol: str) -> List[str]:
     return sorted(correlated)
 
 
+def is_market_open(symbol: str) -> bool:
+    """
+    Egyszerűsített piaci nyitvatartás-ellenőrzés szimbólumonként.
+
+    A kripto szimbólumok (BTC/ETH) 0-24, hét minden napján kereskedhetők,
+    ezért ezekre mindig True-t ad vissza. Minden más (forex, nemesfém,
+    index CFD) a hagyományos piaci naptárat követi: péntek ~21:00 UTC-től
+    vasárnap ~21:00 UTC-ig zárva van (ez megfelel a legtöbb cTrader
+    bróker forex/fém/index kereskedési naptárának - a pontos nyitási perc
+    brókerenként pár percet eltérhet, de ez a becslés elég a felesleges
+    hétvégi API-hívások (Claude + cTrader lekérdezések) elkerüléséhez).
+
+    Args:
+        symbol: Trading szimbólum (pl. XAUUSD, EURUSD, BTCUSD)
+
+    Returns:
+        bool: True, ha a szimbólum piaca (feltehetően) nyitva van
+    """
+    if RiskManager.is_crypto_symbol(symbol):
+        return True
+
+    now = datetime.now(timezone.utc)
+    weekday = now.weekday()  # Hétfő=0 ... Vasárnap=6
+
+    if weekday == 5:  # Szombat: egész nap zárva
+        return False
+    if weekday == 6 and now.hour < 21:  # Vasárnap 21:00 UTC előtt zárva
+        return False
+    if weekday == 4 and now.hour >= 21:  # Péntek 21:00 UTC után zárva
+        return False
+    return True
+
+
 class TechnicalIndicators:
     """Technikai indikátorok számítása"""
 
@@ -257,6 +290,12 @@ class RiskManager:
         self.max_risk_per_trade = max_risk_per_trade
         self.max_open_positions = max_open_positions
         self.leverage = float(os.getenv('CTRADER_LEVERAGE', str(self.DEFAULT_LEVERAGE)))
+
+    @staticmethod
+    def is_crypto_symbol(symbol: str) -> bool:
+        """Kripto szimbólum-e (24/7 kereskedhető, nincs hétvégi zárás)"""
+        symbol = (symbol or '').upper()
+        return symbol.startswith('BTC') or symbol.startswith('ETH')
 
     @staticmethod
     def _contract_size(symbol: str) -> float:
@@ -574,6 +613,9 @@ class AITradingAdvisor:
 
     async def _process_symbol(self, symbol: str):
         """Egy szimbólum elemzése és kereskedési döntés végrehajtása"""
+        if not is_market_open(symbol):
+            logger.debug(f"⏸️ [{symbol}] Piac zárva (hétvége), ciklus kihagyva")
+            return
         try:
             # 1. Piaci adatok
             market_data = await self.mcp_server.get_market_data(symbol)
